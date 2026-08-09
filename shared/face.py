@@ -1,15 +1,4 @@
-"""Default face: standard bring-up for a networked project here.
-
-Every networked project needs the same six steps: load the runtime
-config, own the radio, dial the broker, keep the two in step,
-register both with the runner, and decide what happens when the
-link is gone for good.  ``projects/example_sensor/app.py`` writes
-that out by hand on purpose (it is the teaching reference for the
-underlying wiring); this module owns it instead, so a change to
-wifi or reconnect policy lands in one file and every project picks
-it up on its next deploy.
-
-What a project writes::
+"""Standard bring-up for a networked project: config + runner + wifi + MQTT.
 
     from face import Face
 
@@ -20,23 +9,9 @@ What a project writes::
         face.add_status()
         face.serve_forever()
 
-The runner, wifi service and client stay public on the returned
-object: this is composition, not a framework.  Anything the
-libraries expose is still reachable, and a project that outgrows
-the defaults can build the pieces itself.
-
-Every service is also a constructor seam (``config=``, ``runner=``,
-``wifi=``, ``mqtt=``), the same default-if-None injection shape the
-chumicro libraries use.  Host tests construct a real ``Face``
-around fakes; on the device the defaults build the real stack.
-
-This file is yours (``shared/`` is user-owned; ``update`` never
-touches it): a starter to edit, not a maintained surface.  Deployed
-to the board from ``shared/`` alongside the libraries, so ``import
-face`` resolves the same on device as on the host.  The module-top
-imports resolve on any host with the workspace's ``libraries/``
-populated (``conftest.py`` puts them on the path); they are eager
-per chumicro's import guidance because none of them are optional.
+The runner, wifi service, and client stay public attributes.  Yours
+(``update`` never touches it); deploys to the board from ``shared/``.
+Design rationale lives in ``shared/README.md``.
 """
 
 import json
@@ -47,64 +22,31 @@ from chumicro_wifi import WifiState
 
 DEFAULT_TOPIC_ROOT = "chumicro"
 
-#: Retained payloads on the availability topic.  These are Home
-#: Assistant's defaults for ``payload_available`` /
-#: ``payload_not_available``, so a discovery config that omits both
-#: keys still matches what the board publishes.
+# Home Assistant's default payload_available / payload_not_available.
 ONLINE = "online"
 OFFLINE = "offline"
 
 
 def _report_fault(entry, error):
-    """Print a service fault without tearing down the runner.
-
-    A handler that raises would otherwise kill the loop and take
-    the whole device offline.  Printing keeps the other services
-    ticking and leaves a breadcrumb on the serial console.
-    """
+    """Print a service fault instead of letting it kill the runner loop."""
     print("SERVICE_FAULT", entry.service, repr(error))
 
 
 class Face:
-    """Config + runner + wifi + MQTT, wired together and ticking.
+    """Bring up every service without blocking; links come up across ticks.
 
-    Construction brings up every service but does not block: the
-    radio and the broker connect across runner ticks once
-    :meth:`serve_forever` (or the caller's own tick loop) starts
-    turning.  Publishes issued before CONNACK queue and flush on
-    connect, so a project never has to gate its own startup on the
-    link being up.
-
-    Args:
-        name: Device identity.  Becomes the topic namespace and the
-            default MQTT client id, so it must be stable across
-            reboots and unique on the broker.
-        topic_root: First topic segment.  Defaults to
-            ``chumicro``, giving ``chumicro/<name>/...``.
-        availability: When True (the default), set a retained last
-            will on ``<root>/<name>/availability`` and publish
-            ONLINE once the broker connection is up.  This is what
-            makes a Home Assistant entity go unavailable when the
-            board drops off, rather than showing a stale state
-            forever.
-        config: Mapping-like runtime config.  Defaults to
-            ``load_runtime_config()`` (the deployed msgpack).
-        runner: A ``Runner``-shaped object.  Defaults to a real one
-            wired to :func:`_report_fault`.
-        wifi: A ``WifiService``-shaped object.  Defaults to one
-            built from the ``wifi.*`` config keys.
-        mqtt: An ``MQTTClient``-shaped object.  Defaults to
-            ``MQTTClient.from_config`` on the ``mqtt.*`` keys,
-            routed through the wifi service's radio.
+    Publishes issued before CONNACK queue and flush on connect.
+    *name* is the topic namespace and default client id: stable
+    across reboots, unique on the broker.  *availability* wires the
+    retained OFFLINE will plus ONLINE on connect at
+    ``<root>/<name>/availability``.  *config* / *runner* / *wifi* /
+    *mqtt* are injection seams defaulting to the real stack.
     """
 
     def __init__(self, name, *, topic_root=DEFAULT_TOPIC_ROOT, availability=True,
                  config=None, runner=None, wifi=None, mqtt=None):
-        # Default construction imports lazily, the same shape the
-        # libraries' from_config uses (patterns.md: lazy imports are
-        # for DI fallbacks): inject a piece and its libraries are
-        # never imported, which is also what lets a host test build
-        # a real Face around fakes.
+        # Defaults import lazily: inject a piece and its libraries are
+        # never imported, so host tests build a Face around fakes.
         self.name = name
         self.topic_root = topic_root
 
@@ -125,11 +67,8 @@ class Face:
 
         if mqtt is None:
             from chumicro_mqtt import MQTTClient
-            # Client id comes from the ``mqtt.client_id`` config key
-            # when set (project_config.toml), else from_config derives
-            # a stable per-device id from the hardware UID, so a
-            # reconnecting board reclaims its own broker session
-            # either way.
+            # mqtt.client_id config key when set, else a stable
+            # per-device id derived from the hardware UID.
             mqtt = MQTTClient.from_config(
                 self.config, radio=self.wifi.adapter.radio,
             )
@@ -139,20 +78,15 @@ class Face:
 
         self.availability_topic = self.topic("availability") if availability else None
         if self.availability_topic is not None:
-            # Registered before connect() so it rides the CONNECT
-            # packet; a will set after CONNACK would not apply until
-            # the next reconnect.
+            # Before connect(), so the will rides the CONNECT packet.
             self.mqtt.set_will(
                 self.availability_topic, OFFLINE, qos=1, retain=True,
             )
 
         self._on_connect_callbacks = []
         self._topic_handlers = {}
-        # The client's callback slots are single-assignment; the
-        # Face owns both and fans out, so two components can listen
-        # without silently clobbering each other.  Projects that
-        # need the raw firehose can still replace mqtt.on_message,
-        # at the cost of every on_topic() registration going quiet.
+        # The client's callback slots are single-assignment; the Face
+        # owns both and fans out.
         self.mqtt.on_connect = self._handle_connect
         self.mqtt.on_message = self._dispatch
 
@@ -161,21 +95,12 @@ class Face:
         self.runner.add(self.mqtt)
 
     def topic(self, *segments):
-        """Build a topic under this device's namespace.
-
-        ``face.topic("fan", "set")`` gives
-        ``chumicro/<name>/fan/set``.
-        """
+        """``face.topic("fan", "set")`` gives ``chumicro/<name>/fan/set``."""
         return "/".join((self.topic_root, self.name) + segments)
 
     def _on_wifi_state(self, _old, new):
-        """Keep the client in step with the radio.
-
-        ``hold()`` while the link is down so the client is not
-        dialing a dead radio and burning its backoff; ``connect()``
-        the moment it returns, which dials immediately rather than
-        waiting out the current backoff window.
-        """
+        # hold() while the link is down, connect() the moment it
+        # returns (dials now instead of waiting out the backoff).
         if new == WifiState.CONNECTED:
             self.mqtt.connect()
         else:
@@ -189,26 +114,17 @@ class Face:
     # -- inbound ---------------------------------------------------
 
     def on_topic(self, topic, callback, *, qos=1):
-        """Subscribe to *topic* and route its messages to *callback*.
+        """Subscribe to *topic*, routing payloads to *callback* as stripped str.
 
-        The callback receives the payload decoded and stripped to
-        ``str`` — the shape of every command payload Home Assistant
-        sends ("ON", "2", "15").  A callback that raises is reported
-        and the message dropped: anything reachable from the broker
-        is untrusted input, and a bad retained payload must not be
-        able to wedge the boot path.
-
-        ``subscribe`` is a declaration valid in any state, so this
-        works before the broker is up and the client replays it on
-        every reconnect.  Exact topic match only; a project that
-        wants wildcards or binary payloads sets ``mqtt.on_message``
-        itself instead (which disables every on_topic route).
+        A raising callback is reported and the message dropped
+        (broker input is untrusted).  Exact match only; replayed on
+        every reconnect.  Assigning ``mqtt.on_message`` yourself
+        disables these routes.
         """
         self._topic_handlers[topic] = callback
         self.mqtt.subscribe(topic, qos=qos)
 
     def _dispatch(self, topic, payload):
-        """Route one inbound message to its registered handler."""
         handler = self._topic_handlers.get(topic)
         if handler is None:
             return
@@ -221,25 +137,11 @@ class Face:
     # -- outbound --------------------------------------------------
 
     def publish_telemetry(self, topic, payload, *, qos=0):
-        """Publish a reading that is only meaningful right now.
+        """Publish a now-only reading.  Returns False when dropped.
 
-        Dropped when the broker is not connected, rather than queued.
-        The client's ``when_disconnected`` policy is per-client, so it
-        cannot separate the two kinds of message a device publishes:
-
-        * **State** is durable.  It must survive a reconnect, which is
-          what :meth:`on_connect` republishing is for.
-        * **Telemetry** is a sample of a moment.  Queuing it means
-          that on reconnect the broker receives a burst of readings
-          that were true minutes ago, stamped as if they arrived now.
-          A consumer charting them sees a spray of stale points.
-
-        Observed on hardware: a board that lost the broker for half an
-        hour flushed eight stale status snapshots on reconnect before
-        the current one.
-
-        Returns:
-            True when published, False when dropped.
+        Dropped, not queued, while the broker is away: a reconnect
+        must not replay stale samples as fresh.  Durable state
+        belongs in an :meth:`on_connect` callback instead.
         """
         if not self.broker_connected:
             return False
@@ -247,24 +149,11 @@ class Face:
         return True
 
     def add_status(self, *, period_ms=30_000, extra=None, qos=0):
-        """Publish the system snapshot on ``topic("status")`` periodically.
+        """Publish the ``face_status`` snapshot on ``topic("status")``.
 
-        Every device reports the same baseline — uptime, free RAM
-        and storage, CPU temperature, reset reason (see
-        ``face_status``) — plus the wifi state and whatever *extra*
-        returns.  Telemetry, not state: dropped while the broker is
-        away rather than queued, for the reasons on
-        :meth:`publish_telemetry`.
-
-        Args:
-            period_ms: Publish cadence.
-            extra: Optional zero-arg callable returning a dict of
-                project-specific fields merged into the snapshot.
-            qos: QoS for the status publishes.
-
-        Returns:
-            The publish function, so a caller can also fire one
-            immediately (or a test can drive it directly).
+        *extra* is a zero-arg callable returning fields to merge in.
+        Telemetry semantics: dropped while the broker is away.
+        Returns the publish function so a caller can fire one now.
         """
         from face_status import snapshot
 
@@ -285,51 +174,34 @@ class Face:
     def on_connect(self, callback):
         """Register *callback* to run on every broker (re)connect.
 
-        A device must republish its retained state on reconnect, not
-        just at boot.  A board that has been up for days and briefly
-        loses the broker (broker restart, network blip) comes back
-        with the broker holding no retained state for it, and nothing
-        else will ever republish: state topics are only written on
-        change, and a fan that nobody touches does not change.  Home
-        Assistant would show it unavailable indefinitely while the
-        board runs perfectly.
+        Republish retained state here: after a broker restart the
+        broker holds nothing for this device, and state topics only
+        publish on change.
         """
         self._on_connect_callbacks.append(callback)
 
     def _handle_connect(self):
-        """Re-announce and let registered callbacks republish.
-
-        Fired by the client after CONNACK, once subscriptions have
-        been replayed and the pre-connect queue is drained, so
-        anything published here lands after the backlog rather than
-        being overtaken by it.
-        """
+        # After CONNACK: subscriptions replayed, queue drained.  Each
+        # callback is isolated so one raising can't starve the rest.
         self.announce()
         for callback in self._on_connect_callbacks:
-            callback()
+            try:
+                callback()
+            except Exception as error:
+                print("CONNECT_FAULT", repr(error))
 
     def announce(self):
-        """Publish retained ONLINE on the availability topic.
-
-        Safe to call before the broker is up: the publish queues and
-        flushes on CONNACK, which is exactly when it becomes true.
-        """
+        """Publish retained ONLINE on the availability topic."""
         if self.availability_topic is not None:
             self.mqtt.publish(
                 self.availability_topic, ONLINE, qos=1, retain=True,
             )
 
     def serve_forever(self):
-        """Tick until the radio gives up, then raise.
+        """Tick until wifi reaches FAILED (reconnect policy exhausted).
 
-        ``WifiService`` reaches FAILED only after exhausting its own
-        reconnect policy, so this is the genuine dead end rather
-        than a transient drop.  Raising (instead of returning) hands
-        a board with a hardware watchdog the reset it wants, and
-        leaves the reason on the console for one without.
+        Raises instead of returning: a watchdog board gets its reset,
+        a bare one leaves the reason on the console.
         """
-        # No announce() here: _handle_connect covers the first connect
-        # and every reconnect after it, so announcing again would only
-        # publish a duplicate before the link is even up.
         self.runner.run_until(lambda: self.wifi.state == WifiState.FAILED)
         raise SystemExit(f"{self.name}: wifi failed: {self.wifi.last_error}")
