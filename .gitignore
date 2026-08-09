@@ -1,5 +1,7 @@
-# ChuMicro workspace gitignore.
-.venv/
+# ChuMicro workspace gitignore.  ``.venv*`` rather than ``.venv``:
+# a venv parked aside during a rebuild (.venv.stale.bak) is still a
+# venv, and 31 MB of interpreter is never workspace content.
+.venv*/
 __pycache__/
 *.pyc
 *.mpy
@@ -9,8 +11,9 @@ __pycache__/
 
 # Your projects under projects/ are yours to version in your clone;
 # only generated runtime-config msgpacks (rebuilt on every deploy)
-# stay out of git.
-projects/*/_generated/
+# stay out of git.  ``**`` so nested projects
+# (projects/garage/sensors/door_open/) are covered too.
+projects/**/_generated/
 libraries/*/examples/_generated/
 
 # `library update` keeps a pre-upgrade copy of any edited library tree

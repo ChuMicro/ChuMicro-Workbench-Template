@@ -2,6 +2,12 @@
 
 User-authored helper modules shared between projects in this workspace.
 
+## The default face
+
+`face.py` ships as a starter: `Face(name=...)` is the standard bring-up for a networked project (config + runner + wifi + MQTT wired together, availability last-will, topic routing, periodic system status via `face_status.py`).  `projects/example_sensor/` deliberately writes the same wiring out by hand, so you can see what the face does before leaning on it.
+
+Like everything in `shared/`, these two files are **yours**: edit them freely, and `python3 run.py update` will never touch them.  That also means they never receive upstream fixes — they're a starting point you own, not a maintained surface.
+
 ## Use it like this
 
 Drop a Python file here:

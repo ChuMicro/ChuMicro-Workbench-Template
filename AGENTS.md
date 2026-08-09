@@ -66,8 +66,10 @@ for the workflow primer.
 | `AGENTS.md` | NEVER edit | rewrites |
 | `CONTRIBUTING.md` | NEVER edit | rewrites |
 | `pyproject.toml` | NEVER edit | rewrites |
+| `requirements.txt` | NEVER edit | rewrites |
 | `projects/_template/` | NEVER edit | rewrites |
 | `.github/skills/` | NEVER edit | rewrites |
+| `.github/workflows/` | NEVER edit | rewrites |
 | `examples/` | NEVER edit | rewrites |
 
 If the user asks for changes the tool-owned files would need, propose an upstream PR to the [`ChuMicro-Workspace-Template`](https://github.com/ChuMicro/ChuMicro-Workspace-Template) repo rather than editing in place.

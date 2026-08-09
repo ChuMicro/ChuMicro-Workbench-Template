@@ -1,3 +1,15 @@
 {
-  "extraPaths": ["shared"]
+  "extraPaths": [
+    "shared",
+    "libraries/chumicro_runner/src",
+    "libraries/chumicro_timing/src",
+    "libraries/chumicro_config/src",
+    "libraries/chumicro_msgpack/src",
+    "libraries/chumicro_wifi/src",
+    "libraries/chumicro_mqtt/src",
+    "libraries/chumicro_sockets/src",
+    "libraries/chumicro_kvstore/src",
+    "libraries/chumicro_requests/src",
+    "libraries/chumicro_http_server/src"
+  ]
 }

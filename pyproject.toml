@@ -60,8 +60,9 @@ testpaths = ["tests", "projects"]
 branch = true
 source = ["projects"]
 omit = [
-    # Generated runtime config artifacts the deploy pipeline emits.
-    "projects/*/_generated/*",
+    # Generated runtime config artifacts the deploy pipeline emits
+    # (`**` so nested projects are covered too).
+    "projects/**/_generated/*",
 ]
 
 [tool.coverage.report]
@@ -77,14 +78,16 @@ skip_covered = false
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-# `libraries/` is excluded like `packages/` and `shared/`: library
-# source acquired by `library add` follows its own upstream style
-# (line-length 110), and a library you scaffold with `new --library`
-# carries its own pyproject + gates.  Linting either against the
-# workspace's stricter knobs turns `run.py lint` red on code you
-# don't own here.  `_library-backups/` holds `library update`'s
-# pre-upgrade copies of those same trees, so it gets the same pass.
-extend-exclude = [".venv", "libraries", "packages", "shared", "projects/*/_generated", "_library-backups"]
+# `libraries/` is excluded like `packages/`: library source acquired
+# by `library add` follows its own upstream style (line-length 110),
+# and a library you scaffold with `new --library` carries its own
+# pyproject + gates.  Linting either against the workspace's stricter
+# knobs turns `run.py lint` red on code you don't own here.
+# `_library-backups/` holds `library update`'s pre-upgrade copies of
+# those same trees, so it gets the same pass.  `shared/` is NOT
+# excluded: those modules are yours, deploy to every board that
+# imports them, and deserve the same gate as `projects/`.
+extend-exclude = [".venv", "libraries", "packages", "projects/**/_generated", "_library-backups"]
 
 [tool.ruff.lint]
 # pyflakes + import sorting + bugbear + pyupgrade + relative-import
@@ -97,8 +100,8 @@ ban-relative-imports = "all"
 
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["TID252"]
-"projects/*/tests/**" = ["TID252"]
-"projects/*/functional_tests/**" = ["TID252"]
+"projects/**/tests/**" = ["TID252"]
+"projects/**/functional_tests/**" = ["TID252"]
 
 
 # ---------------------------------------------------------------------------

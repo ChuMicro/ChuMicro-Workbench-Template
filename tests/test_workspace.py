@@ -66,6 +66,15 @@ def _load_app_module(base_dir: Path, app_dir: Path):
     if spec is None or spec.loader is None:  # pragma: no cover
         pytest.fail(f"could not load spec for {app_dir / 'app.py'}")
     module = importlib.util.module_from_spec(spec)
+    # The project directory joins sys.path for the load, mirroring
+    # the device, where the project's files sit at the filesystem
+    # root: an app.py that does ``from fan_driver import ...`` at
+    # module level must smoke-load the same way it boots.  Sibling
+    # modules imported during the load are evicted afterwards so two
+    # projects with same-named siblings can't poison each other
+    # through the sys.modules cache.
+    sys.path.insert(0, str(app_dir))
+    modules_before = set(sys.modules)
     try:
         spec.loader.exec_module(module)
     except ModuleNotFoundError as error:
@@ -77,6 +86,13 @@ def _load_app_module(base_dir: Path, app_dir: Path):
                 f"chumicro-dev mode) to host-test this code.",
             )
         raise
+    finally:
+        sys.path.remove(str(app_dir))
+        for name in set(sys.modules) - modules_before:
+            loaded = sys.modules[name]
+            loaded_file = getattr(loaded, "__file__", None)
+            if loaded_file and Path(loaded_file).parent == app_dir:
+                del sys.modules[name]
     return module
 
 
@@ -125,6 +141,28 @@ def test_example_app_exposes_run(example_dir: Path) -> None:
         f"define a run() callable: it's a scaffold source for new "
         f"projects"
     )
+
+
+def test_shared_face_imports() -> None:
+    """The shipped default face must track the library APIs.
+
+    ``shared/face.py`` imports the chumicro libraries at module top,
+    so on hosts that have them (chumicro-dev mode, or after
+    ``library add``) this catches the starter silently rotting as
+    the libraries move.  Hosts without the libraries skip, matching
+    the app smoke tests above.
+    """
+    try:
+        import face
+    except ModuleNotFoundError as error:
+        if error.name is not None and error.name.startswith("chumicro"):
+            pytest.skip(
+                f"face.py imports {error.name}, which isn't installed on "
+                f"this host.  Run `python3 run.py library add {error.name}` "
+                f"(or enable chumicro-dev mode) to host-test the face.",
+            )
+        raise
+    assert hasattr(face, "Face"), "shared/face.py must export Face"
 
 
 def test_shared_dir_on_import_path() -> None:

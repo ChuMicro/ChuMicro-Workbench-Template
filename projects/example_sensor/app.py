@@ -18,10 +18,11 @@ def read_celsius():
 
 
 def run():
-    # Import device libraries inside run() so app.py loads on a host that
-    # hasn't installed them (the workspace smoke test imports this module
-    # to check for run()); the boot-time import cost also stays out of the
-    # path that executes before run() is called.
+    # Import device libraries inside run() so app.py stays importable on
+    # a bare host (fresh clone, `library add` not run yet): the workspace
+    # smoke test can then always assert run() exists instead of skipping
+    # the whole module.  On hosts with the libraries present, and on the
+    # device, top-level imports would work just as well.
     from chumicro_config import load_runtime_config
     from chumicro_kvstore import KVStore
     from chumicro_mqtt import MQTTClient
