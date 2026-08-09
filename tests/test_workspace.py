@@ -70,9 +70,9 @@ def _load_app_module(base_dir: Path, app_dir: Path):
     # the device, where the project's files sit at the filesystem
     # root: an app.py that does ``from fan_driver import ...`` at
     # module level must smoke-load the same way it boots.  Sibling
-    # modules imported during the load are evicted afterwards so two
-    # projects with same-named siblings can't poison each other
-    # through the sys.modules cache.
+    # modules and packages imported during the load are evicted
+    # afterwards so two projects with same-named siblings can't
+    # poison each other through the sys.modules cache.
     sys.path.insert(0, str(app_dir))
     modules_before = set(sys.modules)
     try:
@@ -90,8 +90,15 @@ def _load_app_module(base_dir: Path, app_dir: Path):
         sys.path.remove(str(app_dir))
         for name in set(sys.modules) - modules_before:
             loaded = sys.modules[name]
+            # __file__ covers modules and regular packages (their
+            # __init__.py lives *under* app_dir, not at its top);
+            # namespace packages carry only __path__.
             loaded_file = getattr(loaded, "__file__", None)
-            if loaded_file and Path(loaded_file).parent == app_dir:
+            if loaded_file:
+                candidates = [loaded_file]
+            else:
+                candidates = list(getattr(loaded, "__path__", None) or [])
+            if any(app_dir in Path(candidate).parents for candidate in candidates):
                 del sys.modules[name]
     return module
 
@@ -141,6 +148,27 @@ def test_example_app_exposes_run(example_dir: Path) -> None:
         f"define a run() callable: it's a scaffold source for new "
         f"projects"
     )
+
+
+def test_app_loader_evicts_sibling_packages(tmp_path: Path) -> None:
+    """Same-named sibling *packages* in two projects must not cross-poison.
+
+    Regression: the eviction guard once matched only flat modules
+    (``Path(__file__).parent == app_dir``), so a cached
+    ``drivers/__init__.py`` from project A satisfied project B's
+    import and B's smoke test executed A's code.
+    """
+    for label in ("proj_a", "proj_b"):
+        project = tmp_path / label
+        (project / "drivers").mkdir(parents=True)
+        (project / "drivers" / "__init__.py").write_text(f'NAME = "{label}"\n')
+        (project / "app.py").write_text(
+            "from drivers import NAME\n\n\ndef run():\n    return NAME\n",
+        )
+    module_a = _load_app_module(tmp_path, tmp_path / "proj_a")
+    module_b = _load_app_module(tmp_path, tmp_path / "proj_b")
+    assert module_a.run() == "proj_a"
+    assert module_b.run() == "proj_b"
 
 
 def test_shared_face_imports() -> None:

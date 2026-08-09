@@ -39,8 +39,11 @@ from __future__ import annotations
 import os
 import subprocess
 import sys
-import tomllib
 from pathlib import Path
+
+# tomllib (3.11+) is imported inside the functions that need it: an
+# import here would crash 3.9/3.10 interpreters with a raw traceback
+# before _check_python_version() can print the real requirement.
 
 WORKSPACE_ROOT = Path(__file__).resolve().parent
 VENV_DIR = WORKSPACE_ROOT / ".venv"
@@ -93,6 +96,8 @@ def _read_chumicro_dev_path() -> Path | None:
     Relative paths resolve against the workspace root.  Returns
     ``None`` when the file is missing or the path key is unset.
     """
+    import tomllib
+
     if not CHUMICRO_DEV_FILE.is_file():
         return None
     data = tomllib.loads(CHUMICRO_DEV_FILE.read_text())
@@ -116,6 +121,8 @@ def _workspace_declares_dev_extra() -> bool:
     pyproject falls back to False so setup degrades to the bare
     editable install rather than crashing.
     """
+    import tomllib
+
     pyproject = WORKSPACE_ROOT / "pyproject.toml"
     if not pyproject.is_file():
         return False
@@ -160,6 +167,8 @@ def _third_party_requirements(packages: list[Path]) -> list[str]:
     requirement string across the discovered packages, first-seen
     order, deduplicated, for one explicit install pass.
     """
+    import tomllib
+
     requirements: list[str] = []
     seen: set[str] = set()
     for package_path in packages:
@@ -355,10 +364,14 @@ def _reexec_in_venv() -> None:
             f"(no python at {venv_python}); "
             f"delete .venv/ and rerun `python3 run.py setup`.",
         )
-    os.execv(
-        str(venv_python),
-        [str(venv_python), __file__, *sys.argv[1:]],
-    )
+    argv = [str(venv_python), __file__, *sys.argv[1:]]
+    if sys.platform == "win32":
+        # Windows exec* does not replace the process (the shell prompt
+        # returns while the child still runs) and joins argv without
+        # quoting, so a workspace path with a space splits.  Run the
+        # venv interpreter as a child instead.
+        raise SystemExit(subprocess.run(argv).returncode)
+    os.execv(str(venv_python), argv)
 
 
 def main() -> int:

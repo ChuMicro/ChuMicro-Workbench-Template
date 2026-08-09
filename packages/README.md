@@ -22,7 +22,7 @@ Then import it from any project:
 
 ## Gitignore
 
-This folder is gitignored by default: third-party trees are usually big and license-varied, and you may not want them in your repo.  The `packages/.gitignore` ignores everything in here except this README.  If you do want to commit a specific cached package, override per-folder:
+This folder is gitignored by default: third-party trees are usually big and license-varied, and you may not want them in your repo.  The `packages/.gitignore` ignores everything in here except this README.  If you do want to commit a specific cached package, override per-folder.  Both the directory *and* its contents need re-including: a bare `!my_pinned_package/` un-ignores the folder while `*` still matches every file inside it, and `git add` silently stages nothing.
 
 ```gitignore
 # packages/.gitignore
@@ -30,4 +30,5 @@ This folder is gitignored by default: third-party trees are usually big and lice
 !.gitignore
 !README.md
 !my_pinned_package/
+!my_pinned_package/**
 ```

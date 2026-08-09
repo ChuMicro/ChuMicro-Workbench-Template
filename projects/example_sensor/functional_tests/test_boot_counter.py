@@ -63,7 +63,12 @@ def test_boot_counter_starts_at_default_when_absent() -> None:
     """A missing key falls back to the ``get`` default.
 
     First-boot behavior: ``run()`` reads ``boot_count`` with a
-    default of 0 before writing 1 back.
+    default of 0 before writing 1 back.  Clears the probe key first
+    rather than trusting the previous test's cleanup: a power loss
+    mid-session can leave it persisted, and this test must pass when
+    selected alone (``-k starts_at_default``).
     """
     store = KVStore()
+    store.pop(_TEST_KEY, None)
+    store.commit()
     assert store.get(_TEST_KEY, 0) == 0
