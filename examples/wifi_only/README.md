@@ -22,6 +22,8 @@ material), then set your credentials:
 python3 run.py new my_first_network --from examples/wifi_only
 # 1. set [wifi] ssid + password in the workspace's gitignored secrets.toml
 # 2. or set ssid per-project in projects/my_first_network/project_config.toml
+python3 run.py library add chumicro_wifi     # the libraries app.py imports,
+python3 run.py library add chumicro_runner   # fetched once per workspace
 python3 run.py deploy my_first_network --tail 30
 ```
 

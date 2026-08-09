@@ -219,7 +219,7 @@ Both hold code your projects can import.  Pick by weight:
 | Want to ship... | Drop it under | Imports look like | Notes |
 |---|---|---|---|
 | A 50-line helper your projects share | `shared/foo.py` | `from foo import bar` | No tests, no version, no scaffolding.  See [`shared/README.md`](shared/README.md). |
-| A full chumicro-style library you might publish someday | `libraries/<name>/` (via `python3 run.py new --library <name>`) | `import <name>` | Gets `src/`, `tests/`, `docs/`, `examples/`, `pyproject.toml`, `VERSION`.  The folder appears the first time you scaffold one. |
+| A full chumicro-style library you might publish someday | `libraries/<name>/` (via `python3 run.py new --library <name>`) | `import <name>` | Gets `src/`, `tests/`, `docs/`, `examples/`, `pyproject.toml`, `VERSION`.  The folder appears the first time you scaffold one, or the first time `library add` fetches an upstream library into it. |
 | A third-party package source tree | `packages/<name>/` | `import <name>` | Gitignored drop area.  See [`packages/README.md`](packages/README.md). |
 
 The import-graph search path resolves explicit `library_sources:`
@@ -323,9 +323,9 @@ python3 run.py update --ref v0.5   # pin to a specific template version
 ```
 
 `update` only touches tool-owned files: `run.py`, `AGENTS.md`,
-`CONTRIBUTING.md`, `pyproject.toml`, the `projects/_template/`
-skeleton, the `examples/` tree, `.github/skills/`, and
-`.github/workflows/`.  Your `projects/`, `devices.yml`,
+`CONTRIBUTING.md`, `pyproject.toml`, `requirements.txt`, the
+`projects/_template/` skeleton, the `examples/` tree,
+`.github/skills/`, and `.github/workflows/`.  Your `projects/`, `devices.yml`,
 `workspace.yml`, `secrets.toml`, `shared/`, and `packages/` are never
 touched.  (AGENTS.md carries the same list for agents; if the two
 ever disagree, that's a bug worth reporting.)
@@ -348,9 +348,9 @@ ever disagree, that's a bug worth reporting.)
   - Tooling bug (`run.py` commands, deploy, REPL, config merging) or
     library bug (`chumicro_wifi`, `chumicro_mqtt`, ...): file it on
     [ChuMicro-Workspace-Template issues](https://github.com/ChuMicro/ChuMicro-Workspace-Template/issues)
-    too, naming the tool or library.  The main ChuMicro repository
-    isn't public yet, and this tracker is the interim front door for
-    everything ChuMicro-side.
+    too, naming the tool or library.  This tracker is the front door
+    for everything ChuMicro-side; maintainers route reports to the
+    right upstream home.
   - Your own project's bug: your workspace repo.
 
 ## Project rules: quick reference

@@ -31,7 +31,8 @@ python3 run.py setup                    # creates .venv, installs the tooling, m
 python3 run.py bootstrap                # wizard: finds the port, detects CircuitPython vs MicroPython, registers the board
 python3 run.py new my_project --from examples/wifi_only   # scaffolds projects/my_project/ from the wifi starter
 # Edit secrets.toml (your wifi name + password); tweak projects/my_project/{project_config.toml, app.py} if you like
-python3 run.py library add chumicro_wifi   # once per chumicro library your app imports
+python3 run.py library add chumicro_wifi   # once per chumicro library your app imports...
+python3 run.py library add chumicro_runner # ...including chumicro_runner, which drives the main loop
 python3 run.py deploy my_project
 ```
 
@@ -72,7 +73,7 @@ So this is a realistic prompt here: "I just plugged in a board and I don't know 
 - `quality.toml`: committed.  The workspace's lint and coverage gates, shared by every clone of your repo; `workspace.yml`'s `quality:` block overrides it per machine.
 - `shared/`: helper modules shared between projects.  Drop `foo.py` here and any project can `from foo import bar`; the deploy ships it to the board alongside the libraries.  See [`shared/README.md`](shared/README.md).
 - `packages/`: gitignored drop area for third-party Python source trees your projects import on the device.  See [`packages/README.md`](packages/README.md).
-- `libraries/`: not present by default.  `python3 run.py new --library <name>` creates it the first time you scaffold a full chumicro-style library package.
+- `libraries/`: not present on a fresh clone.  `python3 run.py library add <name>` creates it and fetches the on-device chumicro libraries your projects import; `python3 run.py new --library <name>` scaffolds your own library packages there.  The fetched trees are your clone's copy of upstream code, re-fetchable at any time, so commit them for a self-contained repo or add `libraries/` to your `.gitignore` if you'd rather re-fetch.
 
 ## Worked example: `example_sensor`
 
@@ -192,3 +193,7 @@ When the file is present, `python3 run.py setup` pip-installs every library and 
 In dev mode, `setup` also maintains a `library_sources:` block in `workspace.yml`, mapping every chumicro library in the sibling checkout to its `src/` directory.  That block is tool-owned: every `setup` re-syncs it to match the checkout, so don't hand-edit it (the rest of `workspace.yml` is yours).  `deploy --import-graph` reads the block and ships the on-device libraries straight from your local checkout, with no `circup` / `mip` round-trip and no `library add` step.
 
 </details>
+
+## License
+
+MIT, for the template and everything it scaffolds.  See [LICENSE](LICENSE).

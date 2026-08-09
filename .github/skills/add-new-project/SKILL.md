@@ -123,10 +123,11 @@ python3 run.py repl --tail 30    # standalone tail, no deploy
 
 ## Rules
 
-- **One name move only**: `python3 run.py new` doesn't rename or
-  copy from non-template sources.  If the user wants to fork an
-  existing project, copy the directory by hand and rename
-  carefully.
+- **Scaffold sources**: `python3 run.py new <name>` copies
+  `projects/_template/`; `new <name> --from <path>` copies any
+  existing tree instead (`--from examples/wifi_only`, `--from
+  projects/other_project`).  To rename an existing project, use
+  `python3 run.py rename --project OLD NEW`, not a hand `mv`.
 - **Don't edit `projects/_template/`**: it's tool-owned and
   `update` will rewrite it.  If the user wants a different
   template starter, that's an upstream change.

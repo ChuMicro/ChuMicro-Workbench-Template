@@ -31,8 +31,15 @@ libraries/*/examples/_generated/
 # flow into ``runtime_config.msgpack`` at deploy time.  Materialised
 # on first ``setup`` from the chumicro-workspace package's canonical
 # starter.  Your clone holds your wifi password / broker auth and
-# never travels with the workspace.
-/secrets.toml
+# never travels with the workspace.  Unanchored on purpose: an
+# improvised per-project secrets.toml must not reach git either.
+secrets.toml
+
+# settings.toml is CircuitPython's own credentials file
+# (CIRCUITPY_WIFI_SSID / _PASSWORD).  This workspace doesn't use it
+# (chumicro-wifi owns the radio; deploy evicts it from boards), but
+# a copy created out of CircuitPython habit must not reach git.
+settings.toml
 
 # Materialized from the workbench's canonical devices.yml starter
 # at setup time and mutated in place by `add-device` / `rename` /
@@ -66,3 +73,6 @@ libraries/*/examples/_generated/
 # the template.
 *.pem
 *.der
+*.key
+*.crt
+*.p12

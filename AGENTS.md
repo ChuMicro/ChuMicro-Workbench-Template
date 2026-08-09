@@ -25,7 +25,7 @@ for the workflow primer.
 | `python3 run.py new <name> --library [--into <dir>]` | Scaffold a chumicro-style library tree (full `src/`, `tests/`, `docs/`, `examples/` layout).  Defaults to `<workspace>/libraries/<name>/`. |
 | `python3 run.py projects` | Tree view of every project.  `--flat` for one-line-per-project slash-form output. |
 | `python3 run.py discover` | List serial ports the host can see. |
-| `python3 run.py add-device <id> --address <port> [--runtime <cp\|mp>]` | Probe + register a board.  Runtime auto-detected when omitted. |
+| `python3 run.py add-device <id> --address <port> [--runtime <circuitpython\|micropython>]` | Probe + register a board.  Runtime auto-detected when omitted; only the full runtime names are accepted. |
 | `python3 run.py probe` | Read `sys.implementation` from the default device. |
 | `python3 run.py devices` | Print every entry in `devices.yml`. |
 | `python3 run.py deploy <project>` | Ship a project to the default board.  Name accepts bare / slash / dotted; bare names disambiguate against the live tree. |
@@ -46,7 +46,7 @@ for the workflow primer.
 | `python3 run.py preflight` | `lint` then `test` as one gate, honoring `workspace.yml`'s `quality:` knobs. |
 | `python3 run.py install-firmware --method uf2` | Auto-derived firmware download + flash. |
 | `python3 run.py upgrade-firmware --method esptool` | Same handler, conventionally for re-flashes. |
-| `python3 run.py test [-- pytest-args]` | Run pytest across `tests/` + `projects/*/tests/`.  `workspace.yml`'s `quality.coverage_threshold` (when set) prepends `--cov-fail-under=N`. |
+| `python3 run.py test [paths]` | Run pytest across `tests/` + `projects/*/tests/`.  Positional paths narrow the run (`test tests`, `test projects/<name>/tests`).  pytest *option* flags (`-k`, `-x`, `-q`, ...) do not pass through the current CLI; narrow by path instead.  `workspace.yml`'s `quality.coverage_threshold` (when set) prepends `--cov-fail-under=N`. |
 | `python3 run.py lint` | Run `ruff check` across the workspace.  `workspace.yml`'s `quality.lint.enabled = false` skips with a hint; `quality.lint.select` prepends `--select <list>`. |
 | `python3 run.py update` | Pull tool-owned file refreshes from the canonical workspace template. |
 
@@ -61,7 +61,7 @@ for the workflow primer.
 | `quality.toml` | YOU; committed.  The workspace's lint/coverage policy, shared by every clone.  `workspace.yml`'s `quality:` block overrides it per machine | leaves alone |
 | `shared/` | YOU (drop `foo.py`, projects import it by bare module name: `from foo import bar`) | leaves alone |
 | `packages/` | YOU (manual-drop area; gitignored) | leaves alone |
-| `libraries/` | YOU (lazy-created by `new --library`; absent by default) | leaves alone |
+| `libraries/` | YOU (created + populated by `library add` fetching on-device libraries; `new --library` scaffolds your own packages there.  Absent on a fresh clone; commit it or gitignore it, the trees re-fetch either way) | leaves alone |
 | `run.py` | NEVER edit | rewrites |
 | `AGENTS.md` | NEVER edit | rewrites |
 | `CONTRIBUTING.md` | NEVER edit | rewrites |
@@ -86,6 +86,7 @@ Procedural knowledge for common workflows lives under `.github/skills/`.  Read t
 | `register-board` | First-time board onboarding, or when `add-device` errors out. |
 | `install-firmware` | A board is fresh from the factory, in bootloader mode, or needs a runtime (re)flashed before it can be registered or deployed to. |
 | `deploy-and-debug` | A deploy failed, output is unclear, or the user wants to follow REPL after deploy. |
+| `audit-comments` | After writing or reworking any `.py` that deploys to a board (`projects/`, `shared/`): check the prose against the device-source comment budget. |
 
 ## Rules of thumb
 
@@ -97,19 +98,28 @@ Procedural knowledge for common workflows lives under `.github/skills/`.  Read t
 - **Flash mode is the default; RAM mode is opt-in for single-library experiments.**  `chumicro-deploy` ships with `deploy_mode: flash` as the default for project deploys, examples, and most functional tests.  This matches how production deploys behave on the device.  RAM mode (`deploy_mode: ram`) is only useful for quick single-library iteration where state-doesn't-persist-across-resets is actually fine.  Heavier libraries (`chumicro-mqtt` / `chumicro-requests` / `chumicro-http-server` / `chumicro-websockets`) declare `[tool.chumicro] requires_flash = true` in their pyproject; if a project imports any of them and the device is in `ram` mode, the deployer auto-switches to flash and prints why.  Surface this when the user reports "messages stop after first publish" or `OSError: [Errno 2] ENOENT` on `/runtime_config.msgpack`.
 - **Run `python3 run.py test` before reporting work as done** when the user has tests under `projects/<name>/tests/` or at the workspace root.
 
+## Device-source style
+
+Everything under `projects/` and `shared/` deploys to the board as raw `.py` source.  There is no mpy-cross step in the pipeline: the board's own compiler parses every byte at import, so comments and docstrings cost flash and compile-time RAM, and a prose-heavy file is the classic `MemoryError`-on-import on a small board.
+
+- **Comment budget: match the chumicro libraries.**  Short contract docstrings (what it does, what it returns, the error semantics), plus a why-comment only where the code cannot say it.  The shipped libraries run about one prose line per three lines of code; a starter file should not exceed that by much.
+- **Long-form rationale goes in the nearest README**, never in device source.  READMEs stay on the host.  `shared/README.md`'s design-notes section is the worked example.
+- **Write comments in sentences, plainly.**  No em-dashes (use a period, comma, colon, or parentheses).  No decoration, no narration of self-evident code.
+- **Run `/audit-comments`** (see the skills index) after writing or reworking a device-deployed file.
+
 ## Tests + lint
 
 | Path | What lives there | Run with |
 |---|---|---|
 | `tests/` | Workspace-level smoke tests (e.g. "every project exposes `run()`"). | `python3 run.py test tests` |
 | `projects/<name>/tests/` | Per-project host-side unit tests.  Scaffolded into every new project by `python3 run.py new <name>`. | `python3 run.py test projects/<name>/tests` |
-| `projects/<name>/functional_tests/` | Board-facing acceptance tests.  `chumicro-pytest-device` ships them to a registered board and runs them there, but **only when the `functional_tests` path is explicitly targeted**; sweeps ignore these trees entirely.  See the shipped `projects/example_sensor/functional_tests/` example (its CPython guard is belt-and-suspenders for tooling versions that predate project-tree routing). | `python3 run.py test projects/<name>/functional_tests` |
+| `projects/<name>/functional_tests/` | Board-facing acceptance tests.  `chumicro-pytest-device` ships them to a registered board and runs them there, but **only when the `functional_tests` path is explicitly targeted**; sweeps ignore these trees entirely.  With no board registered, targeting one collects 0 items and exits 5: register a board first.  See the shipped `projects/example_sensor/functional_tests/` example (its CPython guard is belt-and-suspenders for tooling versions that predate project-tree routing). | `python3 run.py test projects/<name>/functional_tests` |
 
 `python3 run.py test` with no args runs **everything** under `tests/` + `projects/`, except `functional_tests/` trees, which only fire when their path is targeted.
 
 `python3 run.py lint` runs `ruff check` with the workspace's `[tool.ruff]` config (line-length 100, imports sorted, relative-import ban, pyflakes / bugbear / pyupgrade).  Tests + functional tests get the relative-import rule relaxed.  Lint/coverage knobs live in the committed `quality.toml` (`[lint] enabled = false` skips lint; `select = ["E", "F", "I"]` overrides the rule list); `workspace.yml`'s `quality:` block overrides per machine.
 
-Coverage gate: `[tool.coverage.report] fail_under = 85` in `pyproject.toml`, the per-package floor.  Set the workspace's own gate via `coverage_threshold = <N>` in the committed `quality.toml` (forwarded to pytest as `--cov-fail-under`); `workspace.yml`'s `quality:` block overrides per machine, and user CLI args after `--` win on conflict.
+Coverage gate: `[tool.coverage.report] fail_under = 85` in `pyproject.toml`, the per-package floor.  Set the workspace's own gate via `coverage_threshold = <N>` in the committed `quality.toml` (forwarded to pytest as `--cov-fail-under`); `workspace.yml`'s `quality:` block overrides per machine.
 
 ## Working in a fresh workspace
 
