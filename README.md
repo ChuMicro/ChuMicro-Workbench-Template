@@ -1,14 +1,81 @@
 # Your ChuMicro workbench
 
-This is the repo your boards live out of.  Fork the template once and it becomes *your* workbench: every CircuitPython / MicroPython project you build sits in `projects/`, versioned, linted, and tested on your laptop, and one command ships any of them to any registered board.  It is built for the [ChuMicro](https://chumicro.github.io/ChuMicro/) libraries, and it earns its keep even with one project on one board.
+**The home for every board project you build.  You write a `run()` function on your laptop; one command puts it on the board and follows what it prints.**
 
-> This is a template.  Fork it (or clone and `git init` fresh), then rename this title and the directory to whatever you like.  From that moment the repo is yours: the tooling updates its own files in place and never touches your projects.
+The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller responsive: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that queues while the network is down, storage that survives a reboot.  This repo is where projects built on them live.  Your code stays here, in git, with your editor and your tests; the board only ever holds a copy.  A bad deploy, a corrupted board filesystem, or a brand-new board costs you one redeploy, never your work.
 
-Ten steps below take a board from "just plugged in" to publishing sensor readings over MQTT.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, RAM vs flash deploys, health checks, and how to work with an AI agent here.
+Here is a whole project.  It reads the chip temperature, publishes it over MQTT, and counts its own reboots.  This is the shipped [`projects/example_sensor/`](projects/example_sensor/), lightly abridged:
+
+```python
+# projects/example_sensor/app.py
+def run():
+    from chumicro_config import load_runtime_config
+    from chumicro_kvstore import KVStore
+    from chumicro_mqtt import MQTTClient
+    from chumicro_runner import Runner
+    from chumicro_wifi import WifiConfig, WifiService, WifiState
+
+    config = load_runtime_config()   # your secrets.toml + project_config.toml, merged
+
+    kv = KVStore()                   # storage that survives reboots
+    boot_count = kv.get("boot_count", 0) + 1
+    kv["boot_count"] = boot_count
+    kv.commit()
+    print(f"sensor: boot #{boot_count}")
+
+    wifi = WifiService(WifiConfig.from_config(config))
+    mqtt = MQTTClient.from_config(config, radio=wifi.adapter.radio)
+
+    def on_wifi_state(_old, new):
+        if new == WifiState.CONNECTED:
+            mqtt.connect()           # link is back: dial the broker now
+        else:
+            mqtt.hold()              # link is down: stop dialing a dead radio
+
+    wifi.on_state_change(on_wifi_state)
+
+    def publish_reading(now_ms):
+        payload = json.dumps({"boot": boot_count, "celsius": read_celsius()})
+        mqtt.publish(config.require("sensor.topic"), payload,
+                     qos=1)          # queues until connected, flushes on CONNACK
+
+    runner = Runner()
+    runner.add(wifi)
+    runner.add(mqtt)
+    runner.add_periodic(publish_reading,
+                        period_ms=config.require("sensor.publish_period_ms"))
+    runner.run_until(lambda: wifi.state == WifiState.FAILED)
+```
+
+Notice what is *not* in it.  No broker address, no wifi password, no `time.sleep()`.  Credentials live in the gitignored `secrets.toml`; the knobs live in a small file next to the code, so changing the broker or the period is an edit here, not in Python:
+
+```toml
+# projects/example_sensor/project_config.toml
+[mqtt.broker]
+host = "broker.hivemq.com"    # public test broker; swap for your own
+
+[sensor]
+topic = "chumicro/example/temperature"
+publish_period_ms = 5000      # one reading every 5 s
+```
+
+Deploy it and watch it come up:
+
+```console
+$ python3 run.py deploy example_sensor --tail
+...
+sensor: boot #3
+```
+
+One JSON reading every five seconds arrives at the topic.  Unplug the router and the program does not hang: the loop keeps running, readings queue, and they flush when the network returns.  Reset the board and the counter says `boot #4`, because the kvstore kept it.
+
+> This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and it's your repo.  The tooling refreshes its own files in place and never touches your projects.
+
+Getting from a fresh clone to that first reading is the ten steps below.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, health checks, and how to work with an AI agent here.
 
 ## Ten steps: zero to a board publishing MQTT
 
-The shipped `projects/example_sensor/` exercises the full stack (wifi, sockets, MQTT, persistent storage), so the first deploy is a real one.
+The code above is the shipped example, so the first deploy is a real one: wifi, MQTT, and storage all working before you write a line.
 
 ```bash
 # 1. Get your copy.  ("Use this template" on GitHub works too.)
@@ -56,18 +123,15 @@ python3 run.py library add chumicro_kvstore
 #    30 seconds after the push (pass --tail SECONDS for more).
 python3 run.py deploy example_sensor --tail
 
-# 10. See it publish, then make it yours.  From any MQTT client:
+# 10. See it publish (the readings described up top), then make it
+#     yours: scaffold your own project and repeat steps 8-9 for it.
 mosquitto_sub -h broker.hivemq.com -t 'chumicro/example/temperature'
-#    One JSON message every 5 seconds: boot counter, temperature,
-#    sequence number.  Reset the board and the counter increments;
-#    chumicro-kvstore persisted it.  Now scaffold your own project
-#    and repeat steps 8-9 for it:
 python3 run.py new my_project --from examples/wifi_only
 ```
 
 Small print for the steps: the `mosquitto_sub` client comes with the mosquitto tools (`brew install mosquitto` / `apt install mosquitto-clients`), any MQTT client works; `library add` pulls from the stable channel (`--channel experimental` tracks pre-release snapshots); and in chumicro-dev mode step 8 is skipped entirely (see the dev-mode note under Digging deeper).
 
-`projects/example_sensor/app.py` is short on purpose: it's the reference for wiring `WifiService` + `MQTTClient` + `KVStore` into a `Runner`.  Copy and tweak rather than starting from scratch.  (`shared/face.py` packages that same wiring as a reusable starter once you've seen it done by hand.)
+When your own project starts, copy and tweak the example rather than starting from scratch.  Once you've seen the wiring done by hand, `shared/face.py` packages the same bring-up as a reusable starter.
 
 No board on hand yet?  Everything that doesn't touch hardware (`setup`, `new`, the config commands, lint, the test tooling) runs on the laptop alone, so you can build the workbench and write your project first, then plug in.
 
