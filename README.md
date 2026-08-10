@@ -1,10 +1,27 @@
 # Your ChuMicro workbench
 
-**The home for every board project you build.  You write a `run()` function on your laptop; one command puts it on the board and follows what it prints.**
+**You write a `run()` function on your laptop.  One command puts it on the board and shows you what it prints.**
 
-The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller working through real life: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that rides out network outages, storage that survives a reboot.  This repo is where projects built on them live: your code stays here in git, with your editor and your tests, and the tooling puts a copy on the board whenever you say so.
+This is a template for the folder your board projects live in.  Fork it once and every CircuitPython or MicroPython project you build has a home: written in your editor, saved in git, tested on your laptop, and sent to the board when you say so.  It is built for the [ChuMicro libraries](https://chumicro.github.io/ChuMicro/), which keep a board working through real life: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that rides out outages, storage that survives a reboot.
 
-Here is a whole project.  It reads the chip temperature, publishes it over MQTT, and counts its own reboots.  This is the shipped [`projects/example_sensor/`](projects/example_sensor/), lightly abridged:
+## Two commands and the board says hello
+
+Plug in a board running CircuitPython or MicroPython:
+
+```console
+$ python3 run.py setup              # one-time: installs the tooling into .venv
+$ python3 run.py bootstrap --demo   # finds the port, registers the board, ships a hello
+...
+Hello from ChuMicro!
+...
+demo complete!
+```
+
+The demo carries its own tiny payload, so the whole chain (port, runtime, deploy, serial capture) proves itself before you write anything.  From there, `python3 run.py library browse` opens a catalog of the libraries, and `python3 run.py deploy-example <library> <example>` runs any library's worked example on your board while you watch.
+
+## A real project on one page
+
+The shipped [`projects/example_sensor/`](projects/example_sensor/) reads the chip temperature, publishes it over MQTT, and counts its own reboots.  Lightly abridged:
 
 ```python
 # projects/example_sensor/app.py
@@ -15,7 +32,7 @@ def run():
     from chumicro_runner import Runner
     from chumicro_wifi import WifiConfig, WifiService, WifiState
 
-    config = load_runtime_config()   # your secrets.toml + project_config.toml, merged
+    config = load_runtime_config()   # your settings, delivered by the deploy
 
     kv = KVStore()                   # storage that survives reboots
     boot_count = kv.get("boot_count", 0) + 1
@@ -38,7 +55,7 @@ def run():
     runner.run_until(lambda: wifi.state == WifiState.FAILED)   # run forever
 ```
 
-The code carries only the logic.  Credentials live in the gitignored `secrets.toml`, and the knobs sit in a small file next to the code, so swapping brokers or changing the period is a config edit:
+The wifi password and the broker address stay out of the code.  Credentials live in `secrets.toml`, which is gitignored; the knobs live in a small file beside the code:
 
 ```toml
 # projects/example_sensor/project_config.toml
@@ -50,7 +67,7 @@ topic = "chumicro/example/temperature"
 publish_period_ms = 5000      # one reading every 5 s
 ```
 
-Deploy it and watch it come up:
+Deploy it and watch:
 
 ```console
 $ python3 run.py deploy example_sensor --tail
@@ -58,30 +75,13 @@ $ python3 run.py deploy example_sensor --tail
 sensor: boot #3
 ```
 
-One JSON reading every five seconds arrives at the topic.  Two moments you can reproduce at your desk: pull your router's plug, and the board keeps running; plug it back in, and the readings return on their own (the wifi service and the MQTT client handle the reconnecting).  Press the board's reset button, and the next message says `boot #4`; the kvstore kept the count.
+One JSON reading every five seconds arrives at the topic.  Unplug the router and the board keeps running; plug it back in and the readings resume.  Press reset and the next message says `boot #4`: the kvstore kept the count.
 
-> This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and it's your repo.  The tooling refreshes its own files in place and never touches your projects.
+> This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and the repo is yours.  The tooling refreshes its own files in place and leaves your projects alone.
 
-## Before any of that: a board saying hello
+## Ten steps: fresh clone to a publishing board
 
-The tooling can prove itself before you write or configure anything.  Two commands after cloning, with a board plugged in:
-
-```console
-$ python3 run.py setup              # one-time: builds .venv, installs the tooling
-$ python3 run.py bootstrap --demo   # finds the port, registers the board, ships a hello
-...
-Hello from ChuMicro!
-...
-demo complete!
-```
-
-The demo brings its own payload, so it proves the whole chain (port, runtime, deploy, serial capture) in a few seconds, before you've written or configured anything.  From there, `python3 run.py library browse` opens a full-screen catalog of the chumicro libraries, and `python3 run.py deploy-example <library> <example>` ships any library's worked example to the board and drops you into the REPL to watch it run.
-
-Getting from a fresh clone to the temperature-publishing board above is the ten steps below.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, health checks, and how to work with an AI agent here.
-
-## Ten steps: zero to a board publishing MQTT
-
-The code above is the shipped example, so the first deploy is a real one: wifi, MQTT, and storage all working before you write a line.
+The example above is shipped in the box, so your first deploy is a real one: wifi, MQTT, and storage working before you write a line.
 
 ```bash
 # 1. Get your copy.  ("Use this template" on GitHub works too.)
@@ -89,63 +89,63 @@ git clone --depth 1 https://github.com/ChuMicro/ChuMicro-Workbench-Template my-w
 cd my-workbench
 rm -rf .git && git init      # start your own history
 
-# 2. Bootstrap the tooling: creates .venv, installs the host CLI,
-#    materializes the gitignored workspace.yml + secrets.toml + devices.yml.
+# 2. Install the tooling.  Creates .venv and the gitignored
+#    workspace.yml + secrets.toml + devices.yml.
 python3 run.py setup
 
 # 3. (Skip if your board already runs CircuitPython or MicroPython.)
 #    A factory-fresh or bootloader-mode board needs a runtime first:
 python3 run.py install-firmware --method uf2 --url <firmware-image-url>
-#    (--method esptool for ESP32-style boards.  --url is needed the
-#    first time, before the board is registered; after that, images
-#    can be derived from the registry entry.)
+#    (--method esptool for ESP32-style boards.  --url is needed this
+#    first time; once the board is registered, images are derived
+#    from its registry entry.)
 
 # 4. Plug the board in and register it.  The wizard finds the port,
-#    probes CircuitPython vs MicroPython, and records it in devices.yml.
+#    detects CircuitPython vs MicroPython, and records it.
 python3 run.py bootstrap
 
 # 5. Put your wifi name + password in secrets.toml (gitignored, so
 #    credentials never reach git).
 $EDITOR secrets.toml
 
-# 6. Look over the example's own settings.  The defaults publish to
-#    broker.hivemq.com, a free public MQTT broker that needs no signup
-#    (which also means anything you publish there is visible to anyone;
-#    swap in your own broker when it matters).
+# 6. Look over the example's settings.  The defaults publish to
+#    broker.hivemq.com, a free public MQTT broker with no signup
+#    (anything you publish there is visible to anyone; swap in your
+#    own broker when it matters).
 $EDITOR projects/example_sensor/project_config.toml
 
-# 7. Optional sanity check: print the merged config dict exactly as
-#    the device will receive it.
+# 7. Optional sanity check: print the merged settings exactly as the
+#    board will receive them.
 python3 run.py dump-config example_sensor
 
-# 8. Fetch the on-device libraries the example imports (each command
-#    pulls the named library plus its chumicro dependencies):
+# 8. Fetch the on-device libraries the example imports (each pulls
+#    the named library plus its chumicro dependencies):
 python3 run.py library add chumicro_runner
 python3 run.py library add chumicro_mqtt
 python3 run.py library add chumicro_wifi
 python3 run.py library add chumicro_kvstore
 
-# 9. Deploy, then watch.  --tail follows the board's serial output for
-#    30 seconds after the push (pass --tail SECONDS for more).
+# 9. Deploy, then watch.  --tail follows the board's serial output
+#    for 30 seconds after the push (pass --tail SECONDS for more).
 python3 run.py deploy example_sensor --tail
 
-# 10. See it publish (the readings described up top), then make it
-#     yours: scaffold your own project and repeat steps 8-9 for it.
+# 10. See it publish, then start your own project and repeat
+#     steps 8-9 for it.
 mosquitto_sub -h broker.hivemq.com -t 'chumicro/example/temperature'
 python3 run.py new my_project --from examples/wifi_only
 ```
 
-Small print for the steps: the `mosquitto_sub` client comes with the mosquitto tools (`brew install mosquitto` / `apt install mosquitto-clients`), any MQTT client works; `library add` pulls from the stable channel (`--channel experimental` tracks pre-release snapshots); and in chumicro-dev mode step 8 is skipped entirely (see the dev-mode note under Digging deeper).
+Small print: `mosquitto_sub` comes with the mosquitto tools (`brew install mosquitto` / `apt install mosquitto-clients`), and any MQTT client works; `library add` pulls from the stable channel (`--channel experimental` tracks pre-release snapshots); in chumicro-dev mode step 8 is skipped entirely (see the dev-mode note under Digging deeper).
 
-Start your own project by copying the example and tweaking it.  Once you've seen the wiring done by hand, `shared/face.py` packages the same bring-up as a reusable starter.
+Start your own project by copying the example and tweaking it.  Once you have seen the wiring done by hand, `shared/face.py` packages the same bring-up as a reusable starter.
 
-No board on hand yet?  Everything that doesn't touch hardware (`setup`, `new`, the config commands, lint, the test tooling) runs on the laptop alone, so you can build the workbench and write your project first, then plug in.
+No board on hand yet?  Everything that stays on the laptop (`setup`, `new`, the config commands, lint, the test tooling) runs without one, so you can build the workbench and write your project first, then plug in.
 
-Prerequisites, which the wizard will also tell you about: Python 3.11+ on the laptop, and a board running CircuitPython or MicroPython (step 3 covers a fresh one).  RP2040 / RP2350 and ESP32-family boards are the well-worn paths; other boards those runtimes support generally work with a manually supplied firmware image.  `setup` is self-bootstrapping: it creates `.venv/`, installs `chumicro-workspace`, and re-enters the venv on every later command, so you never activate anything.  If `setup` itself fails, the usual causes are an older Python, no network to PyPI, or a half-built venv from an interrupted run; delete `.venv/` and rerun, it's idempotent.
+Prerequisites, which the wizard will also tell you about: Python 3.11+ on the laptop, and a board running CircuitPython or MicroPython (step 3 covers a fresh one).  RP2040 / RP2350 and ESP32-family boards are the well-worn paths; other boards those runtimes support generally work with a manually supplied firmware image.  `setup` is self-bootstrapping: it creates `.venv/`, installs `chumicro-workspace`, and re-enters the venv on every later command, so you never activate anything.  If `setup` itself fails, the usual causes are an older Python, no network to PyPI, or a half-built venv from an interrupted run; delete `.venv/` and rerun, it is idempotent.
 
-Prefer explicit registration over the wizard?  `python3 run.py add-device my-board --address /dev/cu.usbmodem1101 --runtime micropython` (a macOS port path; Linux boards show up as `/dev/ttyACM0` or `/dev/ttyUSB0`, Windows as `COM3`-style names, and `python3 run.py discover` lists what's visible).
+Prefer explicit registration over the wizard?  `python3 run.py add-device my-board --address /dev/cu.usbmodem1101 --runtime micropython` (a macOS port path; Linux boards show up as `/dev/ttyACM0` or `/dev/ttyUSB0`, Windows as `COM3`-style names, and `python3 run.py discover` lists what is visible).
 
-Once you have more than one project or board, name the target: `python3 run.py deploy <project>` picks the project (the bare form only works while exactly one exists, and the shipped `example_sensor` means your first scaffold is already the second), and `--device <id>` picks the board.  `python3 run.py projects` and `python3 run.py devices` list what's registered.
+Once you have more than one project or board, name the target: `python3 run.py deploy <project>` picks the project (the bare form works while exactly one exists, and the shipped `example_sensor` means your first scaffold is already the second), and `--device <id>` picks the board.  `python3 run.py projects` and `python3 run.py devices` list what is registered.
 
 For the full workflow walkthrough, including multi-board and multi-project flows, see the [chumicro-workspace hosted docs](https://chumicro.github.io/ChuMicro/workspace/stable/) (the version selector in the docs header reaches the pre-release `experimental/` docs).
 
@@ -158,21 +158,19 @@ Deploys are clean-slate by default: each one reconciles the board's filesystem t
 
 ## What the tooling does for you
 
-The ten steps are the happy path.  Here is what the tooling does around it:
-
-- **A failed deploy tells you the fix.**  The tooling classifies fourteen known failure modes and prints ordered recovery steps for the one you hit.  When the serial port is busy, it runs `lsof` for you, names the process holding the port (Mu, Thonny, a stale `mpremote`), and prints the exact `kill <pid>` to paste.
-- **Mistakes fail on the laptop, before any bytes reach the board.**  The deployer walks your imports and refuses to ship code that would `ImportError` on first boot, naming the file and the missing module.  It also catches `async def run()` (which would boot a board that silently does nothing) and a hard reset in the boot path (which would crash-loop it), each with the fix spelled out.
-- **You write `app.py`; the boot file writes itself.**  A project shipping `run()` gets a synthesized three-line `code.py` (CircuitPython) or `main.py` (MicroPython) on every deploy, matched to the board's runtime.
-- **Only what you import ships.**  The deployer follows your code's imports through `shared/` helpers, workspace libraries, and packages, and stages exactly the files your program reaches.  `deploy --dry-run` prints the full file map with sizes before anything moves.
-- **Iterate in RAM, ship to flash.**  `deploy --deploy-mode ram` runs your code over the serial cable with no flash writes at all, so a hundred edit-run cycles cost the board nothing and a reset leaves it clean.  When a project genuinely needs flash (a heavy library declares it, or the payload carries data files), the deploy switches itself and prints why.
-- **The board is exactly your project.**  A deploy makes the board's filesystem match your payload, so a stale module from last week is gone before today's run starts.  `boot.py` and the persistent kvstore survive, and a stray `settings.toml` is removed before it can override your wifi config.
-- **Watching is part of deploying.**  `deploy <name> --tail` streams the serial output after the push, paints tracebacks red, and exits non-zero if one appears, which makes "does it actually run on hardware" a one-line CI check.
-- **Your pytest suite runs on the actual board.**  `run.py test projects/<name>/functional_tests` stages the tests onto the device, runs them in the device runtime, and reports each one as a normal pytest line.  Test fixtures can spin up a real MQTT broker, TCP/UDP/TLS echo servers, and hand the board your LAN address.  With nothing plugged in, the same suites can run in a real MicroPython or CircuitPython interpreter on the laptop, with a small-board heap ceiling so memory pressure stays honest.
-- **Tab completion against the board itself.**  `run.py repl` completes against the board's live `dir()`, keeps a persistent history per board, hands multi-line blocks to `$EDITOR`, paints tracebacks red, exits without rebooting the board, and reconnects across an unplug.
-- **One board or a fleet.**  Map projects to boards in `workspace.yml`'s `deploy_targets:` and `deploy --all-projects` walks the whole matrix; `--all-devices` fans one project to every registered board.
-- **Firmware included.**  `install-firmware` (alias `upgrade-firmware`) flashes CircuitPython or MicroPython over UF2 or esptool, deriving the right image from the board's registry entry, so you rarely hunt for a download URL.
-- **Libraries you can pin, float, and edit.**  `library add` fetches a library plus its dependencies from a version-pinned channel (stable or experimental, chosen per library, switchable later).  Your local edits to a fetched library are safe: a re-fetch saves a timestamped backup first, and a marker file freezes a library entirely.
-- **Config you can see.**  `dump-config` prints the exact merged dict a project will receive; `config-validate` checks every project's config against the requirements the libraries themselves declare, before a missing key becomes a boot-time crash.
+- **A failed deploy names its fix.**  Fourteen known failure modes, each with ordered recovery steps.  A busy serial port gets diagnosed with `lsof`, and the holding program's `kill <pid>` is printed for you.
+- **Mistakes stay on the laptop.**  A misspelled import stops the deploy and names the file and the missing module before anything reaches the board.  So does an `async def run()`, and so does a hard reset in the boot path.
+- **The boot file writes itself.**  Ship `app.py` with a `run()` and the deploy writes the three-line `code.py` or `main.py` to match the board's runtime.
+- **Only what you import ships.**  The deployer follows your imports through `shared/`, your libraries, and `packages/`, and stages just those files.  `deploy --dry-run` prints the map with sizes.
+- **Iterate in RAM, ship to flash.**  `deploy --deploy-mode ram` runs code over the serial cable with zero flash writes; a reset clears it.  A project that needs flash gets switched automatically, with the reason printed.
+- **The board matches your project.**  Each deploy reconciles the board's files to your payload.  `boot.py` and the kvstore survive, and a stray `settings.toml` is removed before it overrides your wifi config.
+- **Watching is part of deploying.**  `deploy <name> --tail` follows the serial output, paints tracebacks red, and exits non-zero when one appears: hardware smoke-testing in one line of CI.
+- **pytest runs on the board.**  `run.py test projects/<name>/functional_tests` stages your tests onto the device and reports each one as a normal pytest line.  Fixtures can start an MQTT broker and TCP/TLS echo servers on your laptop for the board to talk to, and the same suites also run in a MicroPython or CircuitPython interpreter on the laptop, small-board memory limits included.
+- **A REPL with your history in it.**  Tab completes against the board's live `dir()`, each board keeps its own command history, multi-line blocks open in `$EDITOR`, and the session reconnects across an unplug.
+- **One board or a fleet.**  Map projects to boards in `workspace.yml`'s `deploy_targets:` and `deploy --all-projects` walks the whole matrix; `--all-devices` sends one project to every registered board.
+- **Firmware included.**  `install-firmware` (alias `upgrade-firmware`) flashes CircuitPython or MicroPython over UF2 or esptool, deriving the right image from the board's registry entry.
+- **Libraries you can pin, float, and edit.**  `library add` fetches a library plus its dependencies from a version-pinned channel (stable or experimental, chosen per library).  Your edits to a fetched library are safe: a re-fetch saves a timestamped backup first, and a marker file freezes a library entirely.
+- **Config you can see.**  `dump-config` prints the merged settings the board will receive; `config-validate` checks them against what the libraries themselves require.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers each of these with the exact commands and flags.
 
@@ -196,7 +194,7 @@ So this is a realistic prompt here: "I just plugged in a board and I don't know 
 
 - `projects/<name>/`: your projects.  Each is a directory with an `app.py` defining `def run()` plus a `project_config.toml` for its knobs.  Names may be nested (`projects/garage/sensors/door_open/`); `python3 run.py projects` shows the tree.
   - `projects/_template/`: the blank project copied by `python3 run.py new`.
-  - `projects/example_sensor/`: a worked example (wifi to MQTT heartbeat with a persistent boot counter).  The ten steps above deploy it.
+  - `projects/example_sensor/`: the worked example the ten steps deploy.
 - `examples/`: read-only worked demos.  Scaffold a real project from one with `python3 run.py new <name> --from examples/<example>`; [`examples/README.md`](examples/README.md) is the index.  This folder is tool-owned: `python3 run.py update` rewrites it from upstream.
 - `devices.yml`: your board registry, gitignored, created by `setup`.  Managed by the device commands (`bootstrap`, `add-device`, `rename`, `probe`), so comments and key order survive edits.
 - `workspace.yml`: gitignored, created by `setup`.  Host-only workbench settings (`deploy_targets`, `quality`), plus two tool-managed blocks: the `libraries:` table `library add` maintains and, in dev mode, the `library_sources:` block `setup` re-syncs.  Never reaches a device.
