@@ -46,7 +46,7 @@ for the workflow primer.
 | `python3 run.py preflight` | `lint` then `test` as one gate, honoring `workspace.yml`'s `quality:` knobs. |
 | `python3 run.py install-firmware --method uf2` | Auto-derived firmware download + flash. |
 | `python3 run.py upgrade-firmware --method esptool` | Same handler, conventionally for re-flashes. |
-| `python3 run.py test [paths]` | Run pytest across `tests/` + `projects/*/tests/`.  Positional paths narrow the run (`test tests`, `test projects/<name>/tests`).  pytest *option* flags (`-k`, `-x`, `-q`, ...) do not pass through the current CLI; narrow by path instead.  `workspace.yml`'s `quality.coverage_threshold` (when set) prepends `--cov-fail-under=N`. |
+| `python3 run.py test [paths] [-- pytest-flags]` | Run pytest across `tests/` + `projects/*/tests/`.  Positional paths narrow the run (`test tests`, `test projects/<name>/tests`); pytest option flags go after `--` (`test -- -k boot -x`).  `workspace.yml`'s `quality.coverage_threshold` (when set) prepends `--cov-fail-under=N`. |
 | `python3 run.py lint` | Run `ruff check` across the workspace.  `workspace.yml`'s `quality.lint.enabled = false` skips with a hint; `quality.lint.select` prepends `--select <list>`. |
 | `python3 run.py update` | Pull tool-owned file refreshes from the canonical workspace template. |
 
@@ -119,7 +119,7 @@ Everything under `projects/` and `shared/` deploys to the board as raw `.py` sou
 
 `python3 run.py lint` runs `ruff check` with the workspace's `[tool.ruff]` config (line-length 100, imports sorted, relative-import ban, pyflakes / bugbear / pyupgrade).  Tests + functional tests get the relative-import rule relaxed.  Lint/coverage knobs live in the committed `quality.toml` (`[lint] enabled = false` skips lint; `select = ["E", "F", "I"]` overrides the rule list); `workspace.yml`'s `quality:` block overrides per machine.
 
-Coverage gate: `[tool.coverage.report] fail_under = 85` in `pyproject.toml`, the per-package floor.  Set the workspace's own gate via `coverage_threshold = <N>` in the committed `quality.toml` (forwarded to pytest as `--cov-fail-under`); `workspace.yml`'s `quality:` block overrides per machine.
+Coverage gate: `[tool.coverage.report] fail_under = 85` in `pyproject.toml`, the per-package floor.  Set the workspace's own gate via `coverage_threshold = <N>` in the committed `quality.toml` (forwarded to pytest as `--cov-fail-under`); `workspace.yml`'s `quality:` block overrides per machine, and flags passed after `--` win on conflict (pytest takes the last occurrence).
 
 ## Working in a fresh workspace
 

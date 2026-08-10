@@ -12,9 +12,11 @@
 # device-side package source goes under packages/ instead.
 
 # The workspace CLI: init / update / deploy / library / repl / etc.
-# 0.51.0 floor: the first release that defaults library acquisition to
-# the stable channel, matching the names in this file.
-chumicro-workspace>=0.51.0
+# 0.54.1 floor: the first release where `test -- <pytest-flags>` passes
+# through and CLI hints name `python3 run.py` inside a template
+# workspace.  (0.51.0 was the prior floor: first release defaulting
+# library acquisition to the stable channel.)
+chumicro-workspace>=0.54.1
 # Serial REPL bridge: `run.py repl` imports it lazily; without it the
 # command fails with ModuleNotFoundError on a regular-mode clone.
 chumicro-repl>=0.4.0

@@ -5,6 +5,12 @@ pin a workspace to one with `python3 run.py update --ref v<version>`.
 
 ## Unreleased
 
+- Tooling floor raised to `chumicro-workspace` 0.54.1 (stable): `test
+  -- <pytest-flags>` now passes through to pytest, CLI hints and the
+  scaffolded library README name `python3 run.py` inside a template
+  workspace, the status/doctor glyph column self-aligns, and the
+  `new --from` help cites a real example.  AGENTS.md documents the
+  restored passthrough form.
 - `shared/face.py` + `shared/face_status.py`: a default bring-up
   starter for networked projects (config + runner + wifi + MQTT,
   availability last-will, topic routing, periodic system status),
