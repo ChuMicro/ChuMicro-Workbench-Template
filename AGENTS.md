@@ -115,6 +115,17 @@ Everything under `projects/` and `shared/` deploys to the board as raw `.py` sou
 - **Write comments in sentences, plainly.**  No em-dashes (use a period, comma, colon, or parentheses).  No decoration, no narration of self-evident code.
 - **Run `/audit-comments`** (see the skills index) after writing or reworking a device-deployed file.
 
+## Prose-doc style
+
+READMEs, guides, and contributing pages follow upstream chumicro's documentation-tone rules ([docs/contributing/style-guide.md, "Documentation tone" and "Voice"](https://github.com/ChuMicro/ChuMicro/blob/main/docs/contributing/style-guide.md)).  The short version:
+
+- **The audience is the Adafruit-Learn crowd**: beginners and hobbyists who have flashed a board and followed a guide or two.  Every sentence must be followable by that reader; serve veterans with receipts (measured numbers, decision links) inside the same sentences, never with jargon.  The best claims are moments the reader can reproduce at a desk.
+- **The root README speaks at repo altitude.**  A section earns its place by showing libraries, tooling, or workflow working together; single-library behaviors and protocol details belong in that library's docs.
+- **Curate code listings for the page's reader.**  A front-page listing carries only lines its reader can follow; expert options stay in guides even when a real deployment would use them.  A listing that needs three paragraphs of explanation should shrink instead.
+- **Positive claims carry the page**: say what happens and who does it for you.  Contrast frames ("x, not y", "you never have to", "there is no") are seasoning, at most once per page.
+- **Re-derive, don't re-word.**  When a passage misses its audience, rewrite the section from what that reader needs (usually code and prose together); synonym swaps inside the wrong frame keep the frame.
+- Mechanics: no em-dashes anywhere; plain words over clever ones; state the project's opinions straight; concrete measured claims only; normal sentences, no staccato compression; behavior over mechanics; at most one metaphor per page.
+
 ## Tests + lint
 
 | Path | What lives there | Run with |

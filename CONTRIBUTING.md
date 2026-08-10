@@ -94,7 +94,7 @@ registered target; `deploy --all-projects` walks the whole mapping.
 
 The shipped `projects/example_sensor/` is the reference project.
 It wires `chumicro-wifi` + `chumicro-mqtt` + `chumicro-kvstore`
-into a `Runner`.  Copy and tweak rather than starting from scratch.
+into a `Runner`.  Start your own projects by copying and tweaking it.
 
 ### Naming projects
 
@@ -245,7 +245,7 @@ skip silently, so a workbench with no `libraries/` pays nothing.
 
 ### Managing fetched libraries
 
-`library add <name>` is the start of a lifecycle, not a one-shot:
+`library add <name>` starts a lifecycle:
 
 - `library list` shows every curated library with its channel and
   version; `library browse` is a full-screen catalog you can

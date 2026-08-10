@@ -2,7 +2,7 @@
 
 **The home for every board project you build.  You write a `run()` function on your laptop; one command puts it on the board and follows what it prints.**
 
-The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller responsive: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that queues while the network is down, storage that survives a reboot.  This repo is where projects built on them live: your code stays here in git, with your editor and your tests, and the board holds a copy you can reship to any board, anytime, with one command.
+The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller working through real life: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that rides out network outages, storage that survives a reboot.  This repo is where projects built on them live: your code stays here in git, with your editor and your tests, and the tooling puts a copy on the board whenever you say so.
 
 Here is a whole project.  It reads the chip temperature, publishes it over MQTT, and counts its own reboots.  This is the shipped [`projects/example_sensor/`](projects/example_sensor/), lightly abridged:
 
@@ -26,25 +26,16 @@ def run():
     wifi = WifiService(WifiConfig.from_config(config))
     mqtt = MQTTClient.from_config(config, radio=wifi.adapter.radio)
 
-    def on_wifi_state(_old, new):
-        if new == WifiState.CONNECTED:
-            mqtt.connect()           # link is back: dial the broker now
-        else:
-            mqtt.hold()              # link is down: stop dialing a dead radio
-
-    wifi.on_state_change(on_wifi_state)
-
     def publish_reading(now_ms):
         payload = json.dumps({"boot": boot_count, "celsius": read_celsius()})
-        mqtt.publish(config.require("sensor.topic"), payload,
-                     qos=1)          # queues until connected, flushes on CONNACK
+        mqtt.publish(config.require("sensor.topic"), payload, qos=1)
 
     runner = Runner()
     runner.add(wifi)
     runner.add(mqtt)
     runner.add_periodic(publish_reading,
                         period_ms=config.require("sensor.publish_period_ms"))
-    runner.run_until(lambda: wifi.state == WifiState.FAILED)
+    runner.run_until(lambda: wifi.state == WifiState.FAILED)   # run forever
 ```
 
 The code carries only the logic.  Credentials live in the gitignored `secrets.toml`, and the knobs sit in a small file next to the code, so swapping brokers or changing the period is a config edit:
@@ -67,13 +58,13 @@ $ python3 run.py deploy example_sensor --tail
 sensor: boot #3
 ```
 
-One JSON reading every five seconds arrives at the topic.  Unplug the router and the loop keeps running: readings queue and flush when the network returns.  Reset the board and the counter says `boot #4`; the kvstore kept it.
+One JSON reading every five seconds arrives at the topic.  Two moments you can reproduce at your desk: pull your router's plug, and the board keeps running; plug it back in, and the readings return on their own (the wifi service and the MQTT client handle the reconnecting).  Press the board's reset button, and the next message says `boot #4`; the kvstore kept the count.
 
 > This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and it's your repo.  The tooling refreshes its own files in place and never touches your projects.
 
 ## Before any of that: a board saying hello
 
-You can meet the tooling before you write or configure anything.  Two commands after cloning, with a board plugged in:
+The tooling can prove itself before you write or configure anything.  Two commands after cloning, with a board plugged in:
 
 ```console
 $ python3 run.py setup              # one-time: builds .venv, installs the tooling
@@ -84,7 +75,7 @@ Hello from ChuMicro!
 demo complete!
 ```
 
-The demo needs no project, no wifi, and no code: it proves the whole chain (port, runtime, deploy, serial capture) in a few seconds.  From there, `python3 run.py library browse` opens a full-screen catalog of the chumicro libraries, and `python3 run.py deploy-example <library> <example>` ships any library's worked example to the board and drops you into the REPL to watch it run.
+The demo brings its own payload, so it proves the whole chain (port, runtime, deploy, serial capture) in a few seconds, before you've written or configured anything.  From there, `python3 run.py library browse` opens a full-screen catalog of the chumicro libraries, and `python3 run.py deploy-example <library> <example>` ships any library's worked example to the board and drops you into the REPL to watch it run.
 
 Getting from a fresh clone to the temperature-publishing board above is the ten steps below.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, health checks, and how to work with an AI agent here.
 
@@ -146,7 +137,7 @@ python3 run.py new my_project --from examples/wifi_only
 
 Small print for the steps: the `mosquitto_sub` client comes with the mosquitto tools (`brew install mosquitto` / `apt install mosquitto-clients`), any MQTT client works; `library add` pulls from the stable channel (`--channel experimental` tracks pre-release snapshots); and in chumicro-dev mode step 8 is skipped entirely (see the dev-mode note under Digging deeper).
 
-When your own project starts, copy and tweak the example rather than starting from scratch.  Once you've seen the wiring done by hand, `shared/face.py` packages the same bring-up as a reusable starter.
+Start your own project by copying the example and tweaking it.  Once you've seen the wiring done by hand, `shared/face.py` packages the same bring-up as a reusable starter.
 
 No board on hand yet?  Everything that doesn't touch hardware (`setup`, `new`, the config commands, lint, the test tooling) runs on the laptop alone, so you can build the workbench and write your project first, then plug in.
 
@@ -167,20 +158,20 @@ Deploys are clean-slate by default: each one reconciles the board's filesystem t
 
 ## What the tooling does for you
 
-The ten steps show the happy path.  The reason the workbench keeps earning its place is what happens around it:
+The ten steps are the happy path.  Here is what the tooling does around it:
 
 - **A failed deploy tells you the fix.**  The tooling classifies fourteen known failure modes and prints ordered recovery steps for the one you hit.  When the serial port is busy, it runs `lsof` for you, names the process holding the port (Mu, Thonny, a stale `mpremote`), and prints the exact `kill <pid>` to paste.
 - **Mistakes fail on the laptop, before any bytes reach the board.**  The deployer walks your imports and refuses to ship code that would `ImportError` on first boot, naming the file and the missing module.  It also catches `async def run()` (which would boot a board that silently does nothing) and a hard reset in the boot path (which would crash-loop it), each with the fix spelled out.
 - **You write `app.py`; the boot file writes itself.**  A project shipping `run()` gets a synthesized three-line `code.py` (CircuitPython) or `main.py` (MicroPython) on every deploy, matched to the board's runtime.
-- **Only what you import ships.**  Import-graph deploys resolve your `shared/` helpers, workspace libraries, and packages, and stage exactly the closure your entrypoint reaches.  `deploy --dry-run` prints the full file map with sizes before anything moves.
+- **Only what you import ships.**  The deployer follows your code's imports through `shared/` helpers, workspace libraries, and packages, and stages exactly the files your program reaches.  `deploy --dry-run` prints the full file map with sizes before anything moves.
 - **Iterate in RAM, ship to flash.**  `deploy --deploy-mode ram` runs your code over the serial cable with no flash writes at all, so a hundred edit-run cycles cost the board nothing and a reset leaves it clean.  When a project genuinely needs flash (a heavy library declares it, or the payload carries data files), the deploy switches itself and prints why.
-- **The board is exactly your project.**  Deploys reconcile the filesystem clean-slate by default, so yesterday's stale module can't haunt today's run.  `boot.py` and the persistent kvstore survive, and a stray `settings.toml` is evicted before it can fight your wifi config.
+- **The board is exactly your project.**  A deploy makes the board's filesystem match your payload, so a stale module from last week is gone before today's run starts.  `boot.py` and the persistent kvstore survive, and a stray `settings.toml` is removed before it can override your wifi config.
 - **Watching is part of deploying.**  `deploy <name> --tail` streams the serial output after the push, paints tracebacks red, and exits non-zero if one appears, which makes "does it actually run on hardware" a one-line CI check.
 - **Your pytest suite runs on the actual board.**  `run.py test projects/<name>/functional_tests` stages the tests onto the device, runs them in the device runtime, and reports each one as a normal pytest line.  Test fixtures can spin up a real MQTT broker, TCP/UDP/TLS echo servers, and hand the board your LAN address.  With nothing plugged in, the same suites can run in a real MicroPython or CircuitPython interpreter on the laptop, with a small-board heap ceiling so memory pressure stays honest.
-- **A REPL you'll keep.**  `run.py repl` gives per-board persistent history, Tab completion against the board's live `dir()`, an `$EDITOR` handoff for multi-line blocks, tracebacks in red, exit without rebooting the board, and auto-reconnect across an unplug.
+- **Tab completion against the board itself.**  `run.py repl` completes against the board's live `dir()`, keeps a persistent history per board, hands multi-line blocks to `$EDITOR`, paints tracebacks red, exits without rebooting the board, and reconnects across an unplug.
 - **One board or a fleet.**  Map projects to boards in `workspace.yml`'s `deploy_targets:` and `deploy --all-projects` walks the whole matrix; `--all-devices` fans one project to every registered board.
 - **Firmware included.**  `install-firmware` (alias `upgrade-firmware`) flashes CircuitPython or MicroPython over UF2 or esptool, deriving the right image from the board's registry entry, so you rarely hunt for a download URL.
-- **Libraries with a memory.**  `library add` fetches a library plus its dependencies from a snapshot-pinned channel (stable or experimental, per library, switchable).  Your local edits to a fetched tree are never clobbered: re-fetches park a timestamped backup first, and a sentinel file freezes a tree entirely.
+- **Libraries you can pin, float, and edit.**  `library add` fetches a library plus its dependencies from a version-pinned channel (stable or experimental, chosen per library, switchable later).  Your local edits to a fetched library are safe: a re-fetch saves a timestamped backup first, and a marker file freezes a library entirely.
 - **Config you can see.**  `dump-config` prints the exact merged dict a project will receive; `config-validate` checks every project's config against the requirements the libraries themselves declare, before a missing key becomes a boot-time crash.
 
 [CONTRIBUTING.md](CONTRIBUTING.md) covers each of these with the exact commands and flags.
