@@ -151,6 +151,16 @@ to the device; WARN-level findings (no devices registered) print but
 proceed.  Pass `deploy --skip-health-check` when you've already
 validated the workbench state externally (CI flows, scripted runs).
 
+Registry housekeeping, for when boards come and go:
+`remove-device <id>` deletes an entry (it asks first, because your
+description and settings can't be rebuilt from a probe);
+`reset-device <id>` re-probes the connected board and rewrites the
+entry from the silicon, which is the *replace* counterpart to
+`add-device --force`'s in-place *update*; `probe` prints what a
+connected board reports about itself.  Every command also accepts
+`--workspace-dir` for CI runners and IDE tasks that don't start from
+the workbench root.
+
 ### How config flows from your edits to the device
 
 Every project receives a runtime config at boot.  That config is the
@@ -183,6 +193,12 @@ Use `python3 run.py dump-config <project>` to print the merged, flat
 dict your project would receive without actually deploying.  Handy
 when you're debugging which layer a key landed in or whether an
 overlay deep-merged the way you expected.
+
+`python3 run.py config-validate [project...]` goes one step further:
+it checks each project's merged config against the requirements the
+chumicro libraries in its import graph declare, and names any missing
+key by the exact dotted name the runtime accessor will ask for.  Run
+it with no arguments to sweep every project; it makes a fast CI gate.
 
 ### Quality gate
 
@@ -227,6 +243,27 @@ overrides, then `shared/`, then every `libraries/<name>/src/`
 (auto-discovered), then `packages/`.  Steps with no folder on disk
 skip silently, so a workbench with no `libraries/` pays nothing.
 
+### Managing fetched libraries
+
+`library add <name>` is the start of a lifecycle, not a one-shot:
+
+- `library list` shows every curated library with its channel and
+  version; `library browse` is a full-screen catalog you can
+  multi-select from (interactive terminals only).
+- Each library tracks either a pinned version (`add --version <tag>`)
+  or floating `HEAD` (`add --floating`); `library update` re-fetches
+  the floating ones and leaves pins alone, which is what makes it
+  predictable.
+- `library switch-channel <name> {stable,experimental}` moves one
+  library between the two snapshot channels.
+- `library remove <name>` uninstalls the tree but records the
+  decision, so a later `update` won't quietly re-fetch it;
+  `library forget <name>` erases the record too.
+- Your edits to a fetched tree are never clobbered: a re-fetch parks
+  the old tree under `_library-backups/` first, and dropping a
+  `.chumicro-local` file in a library freezes it entirely until you
+  delete the marker.
+
 `python3 run.py new --workbench <name>` is the host-only sibling.  It
 scaffolds the same shape with a host-tool pyproject (CLI entry point,
 no cross-runtime concerns) under `workbench/<name>/`.  Use it for
@@ -258,8 +295,23 @@ Choose the mode with the `deploy_mode:` field on a device's entry in
 > `pyproject.toml` (currently mqtt, requests, http_server, and
 > websockets).  When you deploy a project that imports one of those
 > and the run's mode is `ram`, the deployer auto-switches to flash
-> for that run and prints why.  `--force-deploy-mode ram` bypasses
-> the auto-switch (rare; for debugging that behavior itself).
+> for that run and prints why.  A payload carrying non-`.py` data
+> files auto-switches the same way (RAM mode can't carry assets).
+> `--force-deploy-mode ram` bypasses the auto-switch (rare; for
+> debugging that behavior itself).
+
+Three levels of destructiveness on a flash deploy: `--no-wipe`
+(additive: only the entrypoint, state files, and `/lib` are
+reconciled, everything you hand-placed survives), the default
+(clean-slate: the board becomes exactly your payload, with `boot.py`,
+`boot_out.txt`, and the kvstore blob preserved), and `--wipe` (full
+filesystem erase first, keep set included; the standalone
+`reset-board` does the same wipe without a redeploy).  `deploy
+--dry-run` prints the file map (path, size, category) any of them
+would ship, which is also the quickest answer to "what does deploy
+actually do".  In CI, `deploy <name> --tail` exits non-zero when the
+tailed output shows a traceback; add `--no-fail-on-traceback` when
+you only want the log.
 
 ## Debugging: when a deploy doesn't work
 
@@ -273,6 +325,9 @@ Common patterns:
 | Symptom | Likely cause | First thing to try |
 |---|---|---|
 | `port not found` / `failed to access` | board unplugged or claimed by another process | `python3 run.py discover` to list what's actually visible |
+| `Resource busy` opening the port | another program holds the serial port | the failure output names the holding process and prints the `kill <pid>`; `python3 run.py doctor` runs the same check on every registered port |
+| CIRCUITPY won't mount (macOS) | the FSKit volume service is wedged | `python3 run.py doctor --fix-fskit-wedge` (guarded: it refuses to run on a healthy system, where it would do damage) |
+| board filesystem corrupted (`Invalid argument` on delete) | torn FAT directory entries; in-place repair fails | `python3 run.py deploy <name> --wipe` to erase and redeploy, or `reset-board` to just erase |
 | permission denied opening the port (Linux) | your user isn't in the serial-port group | `sudo usermod -a -G dialout $USER` (Debian/Ubuntu; the group is `uucp` on Arch), then log out and back in |
 | `no firmware detected` | board is in bootloader / fresh-flash state | `python3 run.py install-firmware --method uf2` (or `esptool` on ESP32); a board with no `devices.yml` entry yet also needs `--url <image>`, since there's nothing to derive an image from (the install-firmware skill walks it) |
 | `ImportError: no module named ...` on boot | missing library not yet on flash | check the deploy log; the error names the missing module |
@@ -323,6 +378,7 @@ not hand edits.  It should not edit `run.py`, `AGENTS.md`,
 ```bash
 python3 run.py update                # pull tool-owned file refreshes from upstream
 python3 run.py update --ref v0.1.0   # pin to a specific template version (a git tag)
+python3 run.py update --from <url>   # pull from your own fork of the template
 ```
 
 `update` only touches tool-owned files: `run.py`, `AGENTS.md`,

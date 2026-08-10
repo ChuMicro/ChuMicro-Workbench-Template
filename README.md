@@ -71,7 +71,22 @@ One JSON reading every five seconds arrives at the topic.  Unplug the router and
 
 > This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and it's your repo.  The tooling refreshes its own files in place and never touches your projects.
 
-Getting from a fresh clone to that first reading is the ten steps below.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, health checks, and how to work with an AI agent here.
+## Before any of that: a board saying hello
+
+You can meet the tooling before you write or configure anything.  Two commands after cloning, with a board plugged in:
+
+```console
+$ python3 run.py setup              # one-time: builds .venv, installs the tooling
+$ python3 run.py bootstrap --demo   # finds the port, registers the board, ships a hello
+...
+Hello from ChuMicro!
+...
+demo complete!
+```
+
+The demo needs no project, no wifi, and no code: it proves the whole chain (port, runtime, deploy, serial capture) in a few seconds.  From there, `python3 run.py library browse` opens a full-screen catalog of the chumicro libraries, and `python3 run.py deploy-example <library> <example>` ships any library's worked example to the board and drops you into the REPL to watch it run.
+
+Getting from a fresh clone to the temperature-publishing board above is the ten steps below.  After that, [CONTRIBUTING.md](CONTRIBUTING.md) is the day-to-day guide (despite the name): the debugging table, how config reaches the device, health checks, and how to work with an AI agent here.
 
 ## Ten steps: zero to a board publishing MQTT
 
@@ -149,6 +164,26 @@ For the full workflow walkthrough, including multi-board and multi-project flows
 Deploys are clean-slate by default: each one reconciles the board's filesystem to the project's payload.  Anything that isn't the new payload or a device-required file (`boot.py`, `boot_out.txt`, the persistent kvstore blob) is removed, and a board-resident `settings.toml` is evicted because it competes with config-driven wifi.  This means hand-installing libraries with `circup` or `mip` and then running a default deploy can wipe them.  Either let `library add` + `deploy` own the board's `/lib`, or pass `--no-wipe` to leave hand-managed files in place.
 
 </details>
+
+## What the tooling does for you
+
+The ten steps show the happy path.  The reason the workbench keeps earning its place is what happens around it:
+
+- **A failed deploy tells you the fix.**  The tooling classifies fourteen known failure modes and prints ordered recovery steps for the one you hit.  When the serial port is busy, it runs `lsof` for you, names the process holding the port (Mu, Thonny, a stale `mpremote`), and prints the exact `kill <pid>` to paste.
+- **Mistakes fail on the laptop, before any bytes reach the board.**  The deployer walks your imports and refuses to ship code that would `ImportError` on first boot, naming the file and the missing module.  It also catches `async def run()` (which would boot a board that silently does nothing) and a hard reset in the boot path (which would crash-loop it), each with the fix spelled out.
+- **You write `app.py`; the boot file writes itself.**  A project shipping `run()` gets a synthesized three-line `code.py` (CircuitPython) or `main.py` (MicroPython) on every deploy, matched to the board's runtime.
+- **Only what you import ships.**  Import-graph deploys resolve your `shared/` helpers, workspace libraries, and packages, and stage exactly the closure your entrypoint reaches.  `deploy --dry-run` prints the full file map with sizes before anything moves.
+- **Iterate in RAM, ship to flash.**  `deploy --deploy-mode ram` runs your code over the serial cable with no flash writes at all, so a hundred edit-run cycles cost the board nothing and a reset leaves it clean.  When a project genuinely needs flash (a heavy library declares it, or the payload carries data files), the deploy switches itself and prints why.
+- **The board is exactly your project.**  Deploys reconcile the filesystem clean-slate by default, so yesterday's stale module can't haunt today's run.  `boot.py` and the persistent kvstore survive, and a stray `settings.toml` is evicted before it can fight your wifi config.
+- **Watching is part of deploying.**  `deploy <name> --tail` streams the serial output after the push, paints tracebacks red, and exits non-zero if one appears, which makes "does it actually run on hardware" a one-line CI check.
+- **Your pytest suite runs on the actual board.**  `run.py test projects/<name>/functional_tests` stages the tests onto the device, runs them in the device runtime, and reports each one as a normal pytest line.  Test fixtures can spin up a real MQTT broker, TCP/UDP/TLS echo servers, and hand the board your LAN address.  With nothing plugged in, the same suites can run in a real MicroPython or CircuitPython interpreter on the laptop, with a small-board heap ceiling so memory pressure stays honest.
+- **A REPL you'll keep.**  `run.py repl` gives per-board persistent history, Tab completion against the board's live `dir()`, an `$EDITOR` handoff for multi-line blocks, tracebacks in red, exit without rebooting the board, and auto-reconnect across an unplug.
+- **One board or a fleet.**  Map projects to boards in `workspace.yml`'s `deploy_targets:` and `deploy --all-projects` walks the whole matrix; `--all-devices` fans one project to every registered board.
+- **Firmware included.**  `install-firmware` (alias `upgrade-firmware`) flashes CircuitPython or MicroPython over UF2 or esptool, deriving the right image from the board's registry entry, so you rarely hunt for a download URL.
+- **Libraries with a memory.**  `library add` fetches a library plus its dependencies from a snapshot-pinned channel (stable or experimental, per library, switchable).  Your local edits to a fetched tree are never clobbered: re-fetches park a timestamped backup first, and a sentinel file freezes a tree entirely.
+- **Config you can see.**  `dump-config` prints the exact merged dict a project will receive; `config-validate` checks every project's config against the requirements the libraries themselves declare, before a missing key becomes a boot-time crash.
+
+[CONTRIBUTING.md](CONTRIBUTING.md) covers each of these with the exact commands and flags.
 
 ## Why a workbench instead of editing on the device
 

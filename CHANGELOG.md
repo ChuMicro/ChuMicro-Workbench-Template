@@ -5,6 +5,24 @@ pin a workbench to one with `python3 run.py update --ref v<version>`.
 
 ## Unreleased
 
+- Docs now cover the tooling's real surface, grounded in a
+  source-level audit of the host packages.  README: a zero-code
+  first-contact section (`bootstrap --demo`, `library browse`,
+  `deploy-example`) and a capability tour (recovery plans with
+  port-holder diagnosis, laptop-side import/async/reset refusals, the
+  boot shim, RAM-mode iteration with auto-promotion, clean-slate
+  semantics, `--tail` as a CI check, on-device pytest with network
+  fixtures, the REPL, fleet deploys, firmware derivation, the library
+  channel lifecycle, `dump-config` / `config-validate`).
+  CONTRIBUTING: fetched-library lifecycle (pin/float, backups,
+  `.chumicro-local`), the three wipe levels plus `--dry-run` and
+  `--no-fail-on-traceback`, registry housekeeping
+  (`remove-device` / `reset-device` / `probe`), `config-validate`,
+  `--workspace-dir`, `update --from`, and three new debugging-table
+  rows (port holders, the macOS FSKit wedge, FAT corruption).
+  AGENTS: rows for `deploy-example` (with its exit-code contract),
+  the `library` lifecycle verbs, `config-validate`, and
+  `remove-device` / `reset-device`.
 - The template is now **ChuMicro-Workbench-Template** (GitHub rename
   redirect keeps old clone URLs working), and the docs now call the
   repo you fork a *workbench* throughout.  Load-bearing names are

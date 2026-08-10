@@ -29,6 +29,8 @@ for the workflow primer.
 | `python3 run.py add-device <id> --address <port> [--runtime <circuitpython\|micropython>]` | Probe + register a board.  Runtime auto-detected when omitted; only the full runtime names are accepted. |
 | `python3 run.py probe` | Read `sys.implementation` from the default device. |
 | `python3 run.py devices` | Print every entry in `devices.yml`. |
+| `python3 run.py remove-device <id> --yes` | Delete a registry entry (refuses without `--yes`; user-owned metadata can't be rebuilt from a probe). |
+| `python3 run.py reset-device <id> --yes` | Re-probe the connected board and rewrite its entry from silicon, dropping user-owned drift.  Replace, where `add-device --force` is update-in-place. |
 | `python3 run.py deploy <project>` | Ship a project to the default board.  Name accepts bare / slash / dotted; bare names disambiguate against the live tree. |
 | `python3 run.py deploy <project> --device <id>` | Override the default device. |
 | `python3 run.py deploy <project> --dry-run` | Print the file map without writing, useful for "did the overlay merge flatten?" debugging. |
@@ -38,11 +40,14 @@ for the workflow primer.
 | `python3 run.py deploy <project> --no-wipe` | Additive deploy: reconcile only the entrypoint / state files + `/lib`, leaving other board files in place.  The default is clean-slate: the deploy removes anything that isn't the new payload or a keep-set file (`boot.py`, `boot_out.txt`, `_chu_kv.msgpack`) and evicts a board-resident `settings.toml`. |
 | `python3 run.py deploy --all-projects` | Walk `workspace.yml`'s `deploy_targets:` mapping and deploy each project to its declared device(s).  Mutually exclusive with positional names / `--device` / `--runtime` / `--all-devices`. |
 | `python3 run.py demo` | Deploy a built-in print-loop payload to the default board (no wifi, ~5s). |
+| `python3 run.py deploy-example <lib> <example>` | Deploy a fetched library's worked example plus its import closure; `--list` enumerates them.  Exit codes are a stable contract: 0 ok, 2 precheck, 3 no device registered, 4 deploy failed, 5 wizard cancelled, 6 no Python runtime on the board. |
 | `python3 run.py repl` | Open an interactive REPL on the board.  Defaults to **line mode** in a TTY: host-side line editor with persistent per-device history, `:edit` opens `$EDITOR` with the recent buffer pre-seeded, `:save NAME` / `:load NAME` / `:snippets` round-trip reusable code, Tab completes against keywords + the on-device namespace (use `:rescan` after a new `import`).  Add `--mode passthrough` for the byte-by-byte mpremote-style flow (raw REPL framing, paste mode). |
 | `python3 run.py repl --tail 30` | Standalone tail: stream a running board's output for 30 seconds, then exit.  Does not stage code.  To deploy *and* follow, use `deploy <project> --tail`. |
 | `python3 run.py rename --device OLD NEW` | Rename a registered device in `devices.yml`; `--project OLD NEW` renames a project dir instead (slash/dotted paths accepted, namespace dirs auto-created).  One of the two flags is required. |
 | `python3 run.py dump-config <project>` | Print the merged, flattened config the device would receive, without deploying.  The first stop for "which layer did this key come from?" |
-| `python3 run.py library add <name> [--channel stable]` | Fetch a chumicro library plus its chumicro dependencies into the workbench (stable channel by default; `--channel experimental` tracks pre-release snapshots); `deploy` then ships what the project imports. |
+| `python3 run.py library add <name> [--channel stable] [--version <tag>\|--floating]` | Fetch a chumicro library plus its chumicro dependencies into the workbench (stable channel by default; `--channel experimental` tracks pre-release snapshots); `deploy` then ships what the project imports. |
+| `python3 run.py library <list\|update\|remove\|forget\|switch-channel>` | The lifecycle after `add`: `list` shows channel + version per library, `update` re-fetches floating (`HEAD`) entries and skips pins, `remove` uninstalls but records the decision so `update` won't re-fetch, `forget` erases the record, `switch-channel <name> <channel>` moves one library between channels.  Local edits are safe: re-fetches back up the old tree to `_library-backups/`, and a `.chumicro-local` marker file freezes a tree. |
+| `python3 run.py config-validate [project...]` | Validate each project's merged config against the config manifests of the libraries in its import graph; no args sweeps every project.  Missing keys are named in dotted form. |
 | `python3 run.py deploy <project> --import-graph` | Ship on-device libraries resolved through the import graph (in dev mode, straight from the sibling checkout's `library_sources:`). |
 | `python3 run.py preflight` | `lint` then `test` as one gate, honoring `workspace.yml`'s `quality:` knobs. |
 | `python3 run.py install-firmware --method uf2` | Auto-derived firmware download + flash. |
