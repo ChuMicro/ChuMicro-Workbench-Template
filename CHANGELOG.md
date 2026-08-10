@@ -1,26 +1,51 @@
 # Changelog
 
-Notable changes to the workspace template.  Versions are git tags;
-pin a workspace to one with `python3 run.py update --ref v<version>`.
+Notable changes to the workbench template.  Versions are git tags;
+pin a workbench to one with `python3 run.py update --ref v<version>`.
 
 ## Unreleased
 
+- The template is now **ChuMicro-Workbench-Template** (GitHub rename
+  redirect keeps old clone URLs working), and the docs now call the
+  repo you fork a *workbench* throughout.  Load-bearing names are
+  unchanged: the `chumicro-workspace` package and CLI, the
+  `workspace.yml` filename, and the hosted docs path keep their
+  spelling until upstream renames them.
+- README rebuilt around a ten-step path from clone to a board
+  publishing MQTT, absorbing the old quickstart and worked example.
+- `constraints.txt` ships with exact pins for the chumicro host
+  tooling; CI installs through it via `PIP_CONSTRAINT`, and a CI step
+  now runs the `template_zone_docs` ownership-drift checker.
+- New docs: `SECURITY.md` (private vulnerability reporting plus the
+  credentials-stay-gitignored rules), `CODE_OF_CONDUCT.md` (adopts
+  the ChuMicro Contributor Covenant), and `projects/README.md` (the
+  project contract, naming rules, and the three test kinds in one
+  place).
+- Doc corrections: `update`'s refuse-on-local-edit (`--force`) and
+  deletion-reconcile behaviors are documented instead of the old
+  unconditional "rewrites" claim; `install-firmware` on a
+  never-registered board is documented as needing `--url`; the
+  `libraries:` table `library add` manages in `workspace.yml` is
+  documented; `lint` is documented as ruff plus `chumicro-checks`;
+  AGENTS.md gained ownership rows for `constraints.txt` and
+  `pyrightconfig.json`; `.gitignore` covers
+  `.chumicro-template-state.json`.
 - Tooling floor raised to `chumicro-workspace` 0.54.1 (stable): `test
   -- <pytest-flags>` now passes through to pytest, CLI hints and the
   scaffolded library README name `python3 run.py` inside a template
-  workspace, the status/doctor glyph column self-aligns, and the
+  workbench, the status/doctor glyph column self-aligns, and the
   `new --from` help cites a real example.  AGENTS.md documents the
   restored passthrough form.
 - `shared/face.py` + `shared/face_status.py`: a default bring-up
   starter for networked projects (config + runner + wifi + MQTT,
   availability last-will, topic routing, periodic system status),
-  with a workspace smoke test that tracks it against the library
+  with a workbench smoke test that tracks it against the library
   APIs.  `projects/example_sensor/` still writes the same wiring by
   hand as the teaching reference.
 - Full-repo audit fixes: `run.py` now prints its "Python 3.11+
   required" message on 3.9/3.10 instead of a raw `tomllib`
   traceback; the venv re-exec works on Windows (paths with spaces,
-  live console); the workspace smoke test evicts sibling *packages*
+  live console); the workbench smoke test evicts sibling *packages*
   between project loads, so two projects with same-named packages
   can't contaminate each other (regression test added);
   `face_status` free-storage math uses `f_frsize * f_bavail` (the
@@ -44,7 +69,7 @@ pin a workspace to one with `python3 run.py update --ref v<version>`.
   the ChuMicro repo is private; the README names the MIT license.
 - Gitignore hardening: `secrets.toml` ignored at any depth (not
   just the root), `settings.toml` ignored (CircuitPython habit
-  file; this workspace never uses it), and the TLS block covers
+  file; this workbench never uses it), and the TLS block covers
   `*.key` / `*.crt` / `*.p12`.
 - Tooling now pins the stable release channel (`requirements.txt`
   carries the stable names; `chumicro-workspace` 0.51.0 defaults
@@ -63,7 +88,7 @@ pin a workspace to one with `python3 run.py update --ref v<version>`.
 
 First tagged release.  The template as of this tag:
 
-- Clone-and-go workspace layout: `run.py` self-bootstrapping
+- Clone-and-go workbench layout: `run.py` self-bootstrapping
   dispatcher, `projects/` (with `_template/` scaffold source and the
   `example_sensor` reference project), read-only `examples/`
   (hello_world, wifi_only, periodic_get, telemetry_publisher,
@@ -76,7 +101,7 @@ First tagged release.  The template as of this tag:
 - Tooling pinned to the experimental release channel while the first
   stable wave publishes (`requirements.txt` carries the rationale and
   the flip-at-stable note).
-- Host-side testing: workspace smoke tests cover every project and
+- Host-side testing: workbench smoke tests cover every project and
   every shipped example (nested projects included), `conftest.py`
   mirrors the device import search path (`shared/` →
   `libraries/*/src` → `packages/`), and `example_sensor` ships both
@@ -88,6 +113,6 @@ First tagged release.  The template as of this tag:
 - Fixed in the run-up to this tag: dev-mode `setup` installs the
   sibling checkout's third-party requirements (fresh dev-mode venvs
   bootstrap cleanly), `run.py lint` survives `library add` (acquired
-  library trees are excluded from the workspace ruff sweep), dead
+  library trees are excluded from the workbench ruff sweep), dead
   links and stale channel/behavior claims corrected across the docs,
   one `python3 run.py` spelling everywhere, and an MIT license.

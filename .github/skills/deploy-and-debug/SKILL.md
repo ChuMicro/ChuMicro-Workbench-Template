@@ -5,7 +5,7 @@ description: Deploy a project, follow REPL output, and diagnose common failure m
 
 # Deploy and debug
 
-The deploy → REPL → fix cycle is the inner loop of workspace
+The deploy → REPL → fix cycle is the inner loop of workbench
 work.  `chumicro-deploy`'s recovery layer classifies most failures
 into precise messages.  Read them before guessing.
 

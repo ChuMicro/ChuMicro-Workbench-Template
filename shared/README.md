@@ -1,6 +1,6 @@
 # shared/
 
-User-authored helper modules shared between projects in this workspace.
+User-authored helper modules shared between projects in this workbench.
 
 ## The default face
 
@@ -39,7 +39,7 @@ The deploy tooling has `shared/` on its import search path and ships the modules
 | Use shared/ when... | Use libraries/ when... |
 |---|---|
 | You wrote it yourself | You wrote it yourself, *and* it deserves its own version + tests + docs |
-| Multiple projects in this workspace need it | Multiple workspaces (or eventually PyPI) need it |
+| Multiple projects in this workbench need it | Multiple workbenches (or eventually PyPI) need it |
 | It's small enough that a single file is fine | It's a real library: `pyproject.toml`, `src/`, `tests/` |
 | You don't want the ceremony of a full package | You want to publish or distribute it later |
 

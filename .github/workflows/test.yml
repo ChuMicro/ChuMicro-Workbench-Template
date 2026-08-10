@@ -21,6 +21,12 @@ jobs:
         python-version: ["3.11", "3.12", "3.13", "3.14"]
       fail-fast: false
 
+    # pip reads PIP_CONSTRAINT on every install `setup` performs, so
+    # CI resolves the exact chumicro versions pinned in
+    # constraints.txt rather than whatever PyPI grew overnight.
+    env:
+      PIP_CONSTRAINT: ${{ github.workspace }}/constraints.txt
+
     steps:
       - uses: actions/checkout@v4
 
@@ -34,6 +40,11 @@ jobs:
 
       - name: Lint
         run: python3 run.py lint
+
+      # The ownership tables in AGENTS.md / CONTRIBUTING.md must match
+      # the tool's actual zone list; this is the drift tripwire.
+      - name: Zone docs in sync
+        run: .venv/bin/python -m chumicro_workspace.template_zone_docs .
 
       - name: Test
         run: python3 run.py test

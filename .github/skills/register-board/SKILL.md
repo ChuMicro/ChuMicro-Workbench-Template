@@ -5,7 +5,7 @@ description: Register a physical board in devices.yml so deploys can target it. 
 
 # Register a board
 
-`devices.yml` is the workspace's board registry, one entry per
+`devices.yml` is the workbench's board registry, one entry per
 physical board you deploy to.  `python3 run.py deploy` can't ship
 without at least one matching entry.  This skill walks through
 discovery → adding → verification.

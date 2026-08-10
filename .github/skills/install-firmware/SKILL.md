@@ -5,7 +5,7 @@ description: Flash CircuitPython or MicroPython onto a board that is fresh from 
 
 # Install firmware
 
-A board can't join the workspace until it runs CircuitPython or
+A board can't join the workbench until it runs CircuitPython or
 MicroPython.  `python3 run.py install-firmware` downloads a firmware
 image and flashes it; `upgrade-firmware` is an alias of the same flow
 (flashing over existing firmware *is* an upgrade, the tool doesn't

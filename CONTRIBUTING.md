@@ -1,4 +1,4 @@
-# Working in this workspace
+# Working in this workbench
 
 Welcome.  This file is for you, the human who just cloned the
 template, and for any AI coding agent helping you.
@@ -8,12 +8,12 @@ the "now what?" guide: workflows, debugging, where to look up help,
 and how to collaborate with an agent without losing your bearings.
 
 If you're an agent: start with [AGENTS.md](AGENTS.md), the distilled
-rules and commands for editing this workspace.  Skim this file too so
+rules and commands for editing this workbench.  Skim this file too so
 you understand the human's mental model.
 
-## What this workspace is
+## What this workbench is
 
-A ChuMicro project workspace ships as a Git repo you clone (this
+A ChuMicro project workbench ships as a Git repo you clone (this
 template) and edit in place.  Conceptually it has three pieces:
 
 - **`projects/<name>/`**: your applications.  Each project is a
@@ -23,7 +23,7 @@ template) and edit in place.  Conceptually it has three pieces:
 - **`devices.yml`**: your board registry.  One entry per physical
   board you deploy to.  Tool-managed by `add-device` / `rename` /
   `probe`, so comments and key order survive every edit.
-- **`run.py`**: the workspace dispatcher.  Every command goes
+- **`run.py`**: the workbench dispatcher.  Every command goes
   through it: `python3 run.py setup`, `python3 run.py deploy`, and
   so on.  `setup` bootstraps a `.venv`; every later command
   re-enters it automatically.
@@ -35,8 +35,8 @@ file it installs on the device to call your `run()`).
 ## Day one: setup
 
 ```bash
-git clone --depth 1 https://github.com/ChuMicro/ChuMicro-Workspace-Template my-workspace
-cd my-workspace
+git clone --depth 1 https://github.com/ChuMicro/ChuMicro-Workbench-Template my-workbench
+cd my-workbench
 rm -rf .git && git init       # start your own history
 python3 run.py setup          # creates .venv, materializes gitignored workspace.yml + secrets.toml + devices.yml, installs chumicro-workspace
 ```
@@ -131,7 +131,7 @@ That copies `examples/wifi_only/`'s tree into
 `projects/garage/heater/`.  The example folder itself is read-only
 (tool-owned, refreshed on `update`); your edits live under `projects/`.
 
-### Workspace health checks
+### Workbench health checks
 
 Two commands surface common pre-deploy mistakes:
 
@@ -149,7 +149,7 @@ check plus a per-project `app.py` scan ("did you forget the
 ERROR-level findings (malformed YAML files) abort before sending bytes
 to the device; WARN-level findings (no devices registered) print but
 proceed.  Pass `deploy --skip-health-check` when you've already
-validated the workspace state externally (CI flows, scripted runs).
+validated the workbench state externally (CI flows, scripted runs).
 
 ### How config flows from your edits to the device
 
@@ -159,7 +159,7 @@ keys (`wifi.ssid`, `mqtt.broker.host`) for the wire:
 
 ```
 secrets.toml ──────────────────► projects/<name>/project_config.toml
-  (gitignored: workspace-wide       (versioned with your project;
+  (gitignored: workbench-wide       (versioned with your project;
    credentials + device defaults     per-project knobs like sample
    in one place)                     period, mqtt topic, sensor pins)
 
@@ -189,7 +189,7 @@ overlay deep-merged the way you expected.
 `python3 run.py preflight` runs `lint` then `test` as a single sanity
 gate.  The gates live in two layers:
 
-- **`quality.toml`** (committed, at the workspace root): the policy
+- **`quality.toml`** (committed, at the workbench root): the policy
   that travels with your repo, so every clone enforces the same bar.
 
   ```toml
@@ -209,7 +209,7 @@ Both `lint` and `test` are also runnable on their own.
 `run.py lint` also runs `chumicro-checks`, a small extra rule set
 from the chumicro tooling.  The one you might notice is CHU008, which
 flags references that belong to the upstream chumicro repo and don't
-resolve in a workspace.  See `pyproject.toml`'s
+resolve in a workbench.  See `pyproject.toml`'s
 `[tool.chumicro-checks]` block to opt out of rules.
 
 ### Library-shaped code: `shared/` vs `libraries/`
@@ -225,12 +225,14 @@ Both hold code your projects can import.  Pick by weight:
 The import-graph search path resolves explicit `library_sources:`
 overrides, then `shared/`, then every `libraries/<name>/src/`
 (auto-discovered), then `packages/`.  Steps with no folder on disk
-skip silently, so a workspace with no `libraries/` pays nothing.
+skip silently, so a workbench with no `libraries/` pays nothing.
 
 `python3 run.py new --workbench <name>` is the host-only sibling.  It
-scaffolds the same shape with a workbench-flavored pyproject (CLI
-entry point, no cross-runtime concerns) under `workbench/<name>/`.
-Use it for tools you drive from the laptop.
+scaffolds the same shape with a host-tool pyproject (CLI entry point,
+no cross-runtime concerns) under `workbench/<name>/`.  Use it for
+tools you drive from the laptop.  (The flag and output directory keep
+upstream chumicro's name for its host-tool package tier, an older,
+unrelated use of "workbench".)
 
 ### Device modes: RAM vs flash
 
@@ -272,7 +274,7 @@ Common patterns:
 |---|---|---|
 | `port not found` / `failed to access` | board unplugged or claimed by another process | `python3 run.py discover` to list what's actually visible |
 | permission denied opening the port (Linux) | your user isn't in the serial-port group | `sudo usermod -a -G dialout $USER` (Debian/Ubuntu; the group is `uucp` on Arch), then log out and back in |
-| `no firmware detected` | board is in bootloader / fresh-flash state | `python3 run.py install-firmware --method uf2` (or `esptool` on ESP32) |
+| `no firmware detected` | board is in bootloader / fresh-flash state | `python3 run.py install-firmware --method uf2` (or `esptool` on ESP32); a board with no `devices.yml` entry yet also needs `--url <image>`, since there's nothing to derive an image from (the install-firmware skill walks it) |
 | `ImportError: no module named ...` on boot | missing library not yet on flash | check the deploy log; the error names the missing module |
 | messages stop after first publish | RAM mode against a project that needs persistent state | switch to flash mode (per-device override in `devices.yml`) |
 | TLS connection rejected | clock unset, so the cert validity check fails | NTP-sync after wifi connect, or backdate the cert's `notBefore` for development |
@@ -312,27 +314,38 @@ block, which `setup` re-syncs), and `secrets.toml`.  `devices.yml`
 changes go through the device commands (`add-device`, `rename`),
 not hand edits.  It should not edit `run.py`, `AGENTS.md`,
 `CONTRIBUTING.md`, `pyproject.toml`, `projects/_template/`,
-`examples/`, or anything under `.github/`; those are tool-owned, and
+`examples/`, or anything under `.github/skills/` or
+`.github/workflows/` that the template shipped; those are tool-owned, and
 `python3 run.py update` will rewrite them next time you pull.
 
-## Updating the workspace tooling
+## Updating the workbench tooling
 
 ```bash
-python3 run.py update              # pull tool-owned file refreshes from upstream
-python3 run.py update --ref v0.5   # pin to a specific template version
+python3 run.py update                # pull tool-owned file refreshes from upstream
+python3 run.py update --ref v0.1.0   # pin to a specific template version (a git tag)
 ```
 
 `update` only touches tool-owned files: `run.py`, `AGENTS.md`,
-`CONTRIBUTING.md`, `pyproject.toml`, `requirements.txt`, the
-`projects/_template/` skeleton, the `examples/` tree,
-`.github/skills/`, and `.github/workflows/`.  Your `projects/`, `devices.yml`,
+`CONTRIBUTING.md`, `pyproject.toml`, `requirements.txt`,
+`constraints.txt`, the `projects/_template/` skeleton, the
+`examples/` tree, `.github/skills/`, and `.github/workflows/`.  Your `projects/`, `devices.yml`,
 `workspace.yml`, `secrets.toml`, `shared/`, and `packages/` are never
 touched.  (AGENTS.md carries the same list for agents; if the two
 ever disagree, that's a bug worth reporting.)
 
+Two safety behaviors worth knowing.  If you've locally edited a
+tool-owned file, `update` refuses to overwrite it (exit 3, naming the
+file) rather than silently discarding your change; rerun with
+`--force` to accept upstream's version.  And `update` reconciles
+deletions: a tool-owned file it applied earlier that upstream no
+longer ships is removed.  Files *you* created inside tool-owned
+directories (say, a custom sibling workflow under
+`.github/workflows/`) are never touched either way.  The bookkeeping
+behind both lives in the gitignored `.chumicro-template-state.json`.
+
 ## Where to look up help
 
-- **`AGENTS.md`**: concise rules for editing the workspace (file
+- **`AGENTS.md`**: concise rules for editing the workbench (file
   ownership, day-to-day commands, gotchas).
 - **`.github/skills/<topic>/SKILL.md`**: agent-loadable procedures
   for the most common workflows.  Useful as reference even without
@@ -344,14 +357,14 @@ ever disagree, that's a bug worth reporting.)
 - **The chumicro library [hosted docs](https://chumicro.github.io/ChuMicro/)**:
   per-library guides for `chumicro-wifi`, `chumicro-mqtt`, and the rest.
 - **Issues**, routed by what broke:
-  - Template bug (a shipped file here is wrong): [ChuMicro-Workspace-Template issues](https://github.com/ChuMicro/ChuMicro-Workspace-Template/issues).
+  - Template bug (a shipped file here is wrong): [ChuMicro-Workbench-Template issues](https://github.com/ChuMicro/ChuMicro-Workbench-Template/issues).
   - Tooling bug (`run.py` commands, deploy, REPL, config merging) or
     library bug (`chumicro_wifi`, `chumicro_mqtt`, ...): file it on
-    [ChuMicro-Workspace-Template issues](https://github.com/ChuMicro/ChuMicro-Workspace-Template/issues)
+    [ChuMicro-Workbench-Template issues](https://github.com/ChuMicro/ChuMicro-Workbench-Template/issues)
     too, naming the tool or library.  This tracker is the front door
     for everything ChuMicro-side; maintainers route reports to the
     right upstream home.
-  - Your own project's bug: your workspace repo.
+  - Your own project's bug: your workbench repo.
 
 ## Project rules: quick reference
 
@@ -382,7 +395,7 @@ These match the rules in `AGENTS.md`; called out here for humans too.
 
 Sanity-check ladder:
 
-1. Is the workspace itself well-formed?  `python3 run.py status`
+1. Is the workbench itself well-formed?  `python3 run.py status`
    (or `doctor` for the strict version).
 2. Is the board actually plugged in?  `python3 run.py discover`.
 3. Is the right runtime registered for that port?  `python3 run.py

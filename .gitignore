@@ -60,6 +60,11 @@ settings.toml
 # inside that dir handles "ignore everything except itself" so the dir
 # itself stays tracked.
 
+# `update` fingerprints the tool-owned files it wrote here so the
+# next run can refuse to clobber local edits.  Machine state, not
+# workspace content.
+.chumicro-template-state.json
+
 # Agent scratch space: commit messages, log captures, temporary
 # notes.  Tool-owned by convention but never committed.
 .scratch/

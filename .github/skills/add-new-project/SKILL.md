@@ -1,6 +1,6 @@
 ---
 name: add-new-project
-description: Scaffold a new project in this ChuMicro workspace, wire its config + credentials, and verify the first deploy.  Use when the user says "make a new project", "add an X app", or asks to start a new program from scratch.
+description: Scaffold a new project in this ChuMicro workbench, wire its config + credentials, and verify the first deploy.  Use when the user says "make a new project", "add an X app", or asks to start a new program from scratch.
 ---
 
 # Add a new project
@@ -48,17 +48,17 @@ Open both and edit:
 - `project_config.toml`: fill in per-project knobs (sample
   period, mqtt topic, sensor pins, etc.).  This file is versioned
   with the project, so keep credentials out of it.  They belong in
-  the workspace's gitignored `secrets.toml` (step 3).
+  the workbench's gitignored `secrets.toml` (step 3).
 
 ## 3. Wire credentials
 
-Workspace-wide credentials (wifi password, broker auth) live in
-the gitignored `secrets.toml` at the workspace root.  `setup`
+Workbench-wide credentials (wifi password, broker auth) live in
+the gitignored `secrets.toml` at the workbench root.  `setup`
 materialises that file from the chumicro-workspace package's
 canonical starter on first run; open it and fill in your values:
 
 ```toml
-# secrets.toml: gitignored; workspace-wide credentials + device defaults
+# secrets.toml: gitignored; workbench-wide credentials + device defaults
 [wifi]
 ssid = "YourNetwork"
 password = "your-actual-passphrase"

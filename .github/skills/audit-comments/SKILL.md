@@ -1,6 +1,6 @@
 ---
 name: audit-comments
-description: Audit the comments and docstrings in device-deployed Python files (projects/, shared/) against the workspace comment budget.  Use after writing or reworking any .py that ships to a board, or when a file reads as more prose than code.
+description: Audit the comments and docstrings in device-deployed Python files (projects/, shared/) against the workbench comment budget.  Use after writing or reworking any .py that ships to a board, or when a file reads as more prose than code.
 ---
 
 # Audit comments
@@ -73,7 +73,7 @@ grep -nE '—|→|⇒' <file>
 grep -niE 'canonical|idempotent|comprehensive|seamless|robust|leverage|elegant|streamlined|battle-tested|first-class|under the hood|simply put|powerful' <file>
 ```
 
-Em-dashes are banned in this workspace's prose: replace each with a
+Em-dashes are banned in this workbench's prose: replace each with a
 period, comma, colon, or parentheses, rewriting so the sentence
 reads naturally.  Read every surviving sentence out loud; a sentence
 you would not say to a colleague gets rewritten.

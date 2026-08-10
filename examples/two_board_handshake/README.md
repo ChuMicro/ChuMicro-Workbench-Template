@@ -66,6 +66,6 @@ Once the round-trip is solid:
   HTTP server with an MQTT subscriber.  Same hardware, different
   transport.  See `telemetry_publisher/` for the publisher half.
 
-For the full network reference (wifi → sockets → mqtt → kvstore →
-workspace, with persistent state across resets), see
+For the full network reference (wifi → sockets → mqtt → kvstore,
+with persistent state across resets), see
 `projects/example_sensor/` in this template repo.
