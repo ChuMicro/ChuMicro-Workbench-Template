@@ -2,7 +2,7 @@
 
 **The home for every board project you build.  You write a `run()` function on your laptop; one command puts it on the board and follows what it prints.**
 
-The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller responsive: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that queues while the network is down, storage that survives a reboot.  This repo is where projects built on them live.  Your code stays here, in git, with your editor and your tests; the board only ever holds a copy.  A bad deploy, a corrupted board filesystem, or a brand-new board costs you one redeploy, never your work.
+The [ChuMicro libraries](https://chumicro.github.io/ChuMicro/) keep a microcontroller responsive: wifi that reconnects itself, MQTT (the message channel most home-automation software speaks) that queues while the network is down, storage that survives a reboot.  This repo is where projects built on them live: your code stays here in git, with your editor and your tests, and the board holds a copy you can reship to any board, anytime, with one command.
 
 Here is a whole project.  It reads the chip temperature, publishes it over MQTT, and counts its own reboots.  This is the shipped [`projects/example_sensor/`](projects/example_sensor/), lightly abridged:
 
@@ -47,7 +47,7 @@ def run():
     runner.run_until(lambda: wifi.state == WifiState.FAILED)
 ```
 
-Notice what is *not* in it.  No broker address, no wifi password, no `time.sleep()`.  Credentials live in the gitignored `secrets.toml`; the knobs live in a small file next to the code, so changing the broker or the period is an edit here, not in Python:
+The code carries only the logic.  Credentials live in the gitignored `secrets.toml`, and the knobs sit in a small file next to the code, so swapping brokers or changing the period is a config edit:
 
 ```toml
 # projects/example_sensor/project_config.toml
@@ -67,7 +67,7 @@ $ python3 run.py deploy example_sensor --tail
 sensor: boot #3
 ```
 
-One JSON reading every five seconds arrives at the topic.  Unplug the router and the program does not hang: the loop keeps running, readings queue, and they flush when the network returns.  Reset the board and the counter says `boot #4`, because the kvstore kept it.
+One JSON reading every five seconds arrives at the topic.  Unplug the router and the loop keeps running: readings queue and flush when the network returns.  Reset the board and the counter says `boot #4`; the kvstore kept it.
 
 > This is a template.  Fork it (or clone it and `git init` fresh), rename the title above, and it's your repo.  The tooling refreshes its own files in place and never touches your projects.
 
