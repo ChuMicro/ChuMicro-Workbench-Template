@@ -15,9 +15,9 @@
 # Tool-owned: `chumicro-workspace update` overwrites this file, which
 # is how a template refresh rolls the pins forward.
 
-chumicro-workspace==0.54.1
+chumicro-workspace==0.54.3
 chumicro-repl==0.4.3
-chumicro-pytest-device==0.17.9
-chumicro-test-harness==0.3.3
+chumicro-pytest-device==0.18.0
+chumicro-test-harness==0.3.4
 chumicro-checks==0.20.0
-chumicro-deploy==0.38.2
+chumicro-deploy==0.39.3
