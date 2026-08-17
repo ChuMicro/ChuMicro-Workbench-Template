@@ -136,7 +136,7 @@ READMEs, guides, and contributing pages follow upstream chumicro's documentation
 
 `python3 run.py test` with no args runs **everything** under `tests/` + `projects/`, except `functional_tests/` trees, which only fire when their path is targeted.
 
-`python3 run.py lint` runs `ruff check` with the workbench's `[tool.ruff]` config (line-length 100, imports sorted, relative-import ban, pyflakes / bugbear / pyupgrade).  Tests + functional tests get the relative-import rule relaxed.  Lint/coverage knobs live in the committed `quality.toml` (`[lint] enabled = false` skips lint; `select = ["E", "F", "I"]` overrides the rule list); `workspace.yml`'s `quality:` block overrides per machine.
+`python3 run.py lint` runs two tools.  `ruff check` reads the workbench's `[tool.ruff]` config (line-length 100, imports sorted, relative-import ban, pyflakes / bugbear / pyupgrade), with the relative-import rule relaxed for tests and functional tests.  `chumicro-checks` then runs the CHU rules from `[tool.chumicro-checks]`; `quality.lint.tools` picks which of the two run, and args after `--` go to ruff.  Lint/coverage knobs live in the committed `quality.toml` (`[lint] enabled = false` skips lint; `select = ["E", "F", "I"]` overrides the rule list); `workspace.yml`'s `quality:` block overrides per machine.
 
 Coverage gate: `[tool.coverage.report] fail_under = 85` in `pyproject.toml`, the per-package floor.  Set the workbench's own gate via `coverage_threshold = <N>` in the committed `quality.toml` (forwarded to pytest as `--cov-fail-under`); `workspace.yml`'s `quality:` block overrides per machine, and flags passed after `--` win on conflict (pytest takes the last occurrence).
 
