@@ -1,12 +1,30 @@
-"""Telemetry publisher: wifi up, MQTT-publish on a heartbeat.
+"""Send a reading to an MQTT broker every few seconds, forever.
 
-Pairs wifi with `chumicro-mqtt` to push a JSON payload to a topic
-every ``period_ms``.  ``MQTTClient.from_config`` owns the transport,
-reconnect backoff, and self-heal-on-drop; a sample produced before
-the broker session is up buffers in the client's pre-connect queue
-and flushes on CONNACK (``when_disconnected="queue"``, the default),
-so the publisher needs no CONNECTED guard.  See
-`projects/example_sensor/` for the full network-stack reference.
+This is the file that runs on the board.  It brings wifi up, connects to
+a broker, and publishes a small JSON payload on a repeating schedule.
+
+The thing to notice is what is *not* here.  ``publish_reading`` never
+checks whether wifi is up or whether the broker is connected; it just
+publishes.  If the session is not up yet, the client holds the message
+and sends it once it is.  Reconnecting after a drop is not handled here
+either, because the client does that on its own.
+
+What you will see::
+
+    telemetry_publisher: publishing to sensors/demo
+    telemetry_publisher: wifi at 10.0.0.42
+    telemetry_publisher: -> sensors/demo #0
+    telemetry_publisher: -> sensors/demo #1
+    ...
+
+Things to change:
+
+* ``project_config.toml`` beside this file holds the broker address, the
+  topic, and the period.
+* Replace the ``{"n": seq}`` payload with a real sensor reading.
+
+For a fuller version with storage that survives a reset, see
+``projects/example_sensor/``.
 
 Scaffold a copy with
 ``python3 run.py new <name> --from examples/telemetry_publisher``,
@@ -56,5 +74,10 @@ def run():
     runner.add_periodic(publish_reading, period_ms=period_ms)
 
     print(f"telemetry_publisher: publishing to {topic}")
-    runner.run_until(lambda: wifi.state == WifiState.FAILED)
-    raise SystemExit(f"telemetry_publisher: wifi failed: {wifi.last_error}")
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never ends, which is what a board program
+    # does.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)

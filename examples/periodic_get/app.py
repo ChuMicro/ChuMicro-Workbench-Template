@@ -1,10 +1,35 @@
-"""Periodic HTTP GET: wifi up, fetch a URL on a heartbeat.
+"""Fetch a URL every so often, without the rest of the board stopping.
 
-Demonstrates `chumicro-requests` driven by the `chumicro-runner`
-tick scheduler.  The fetcher's `check` / `handle` shape never
-block-calls the loop, so wifi reconnects keep working in the gap
-between requests.  ``Deadline`` owns the next-fetch arithmetic: no
-raw ticks math to get the 32-bit wrap wrong.
+This is the file that runs on the board.  It brings wifi up, then asks
+for a URL on a repeating schedule and prints what came back.
+
+``_PeriodicFetcher`` below is where the interesting part lives.  It is an
+object with two methods the runner calls: ``check(now_ms)`` answers "do I
+want a turn?" and ``handle(now_ms)`` takes one.  Neither of them waits
+for the network.  A request that is still in flight simply is not
+finished yet, and the fetcher says so and returns, which is why wifi can
+drop and reconnect in the gap between two fetches without anything here
+noticing.
+
+``Deadline`` keeps track of when the next fetch is due.  It is worth
+using rather than subtracting timestamps yourself: the millisecond
+counter on these boards wraps around, and ``Deadline`` already handles
+that.
+
+What you will see::
+
+    periodic_get: connecting ...
+    periodic_get: connected at 10.0.0.42
+    periodic_get: GET http://example.com/
+      -> status=200 bytes=1256
+    periodic_get: GET http://example.com/
+      -> status=200 bytes=1256
+    ...
+
+Things to change:
+
+* ``project_config.toml`` beside this file holds ``fetch.url`` and
+  ``fetch.period_ms``.
 
 Scaffold a copy with
 ``python3 run.py new <name> --from examples/periodic_get``, then
@@ -73,9 +98,11 @@ def run():
     runner.add(wifi)
 
     print("periodic_get: connecting ...")
-    runner.run_until(lambda: wifi.connected or wifi.state == WifiState.FAILED)
-    if wifi.state == WifiState.FAILED:
-        raise SystemExit(f"wifi failed: {wifi.last_error}")
+    while not wifi.connected:
+        now_ms = runner.tick()
+        if wifi.state == WifiState.FAILED:
+            raise SystemExit(f"wifi failed: {wifi.last_error}")
+        runner.wait(now_ms)
     print(f"periodic_get: connected at {wifi.ip}")
 
     client = HttpClient.from_config(config, radio=wifi.adapter.radio)
@@ -86,4 +113,10 @@ def run():
         period_ms=config.get("fetch.period_ms", 30_000),
     ))
 
-    runner.run_until()  # never completes: parks the CPU between fetches
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never exits, which is what a board
+    # program does: it parks between fetches and wakes for the next one.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)

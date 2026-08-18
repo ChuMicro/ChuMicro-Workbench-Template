@@ -439,13 +439,21 @@ These match the rules in `AGENTS.md`; called out here for humans too.
 - Run `python3 run.py test` (forwards to `pytest`) before shipping.
   Tests live under `projects/<name>/tests/` if you want per-project
   coverage.
-- For network-attached projects (anything using `chumicro-mqtt` or
-  similar), drive the main loop with `runner.run_until(...)`.  It
-  ticks, then parks the CPU in `runner.wait(now)` until the next
-  event or deadline, which is the right way to idle.  Don't
-  hand-roll a bare `while True: runner.tick()` busy-spin (it never
-  parks), and don't add `time.sleep_ms()` inside the loop (tick
-  latency matters for packet timing).
+- Write the main loop out by hand, the same way every example in
+  this workbench does:
+
+  ```python
+  while True:
+      now_ms = runner.tick()   # every registered service takes one small step
+      runner.wait(now_ms)      # then the CPU parks until the next event or deadline
+  ```
+
+  `runner.wait(now_ms)` is the line that matters: it parks the CPU
+  until the next event or deadline.  A `while True: runner.tick()`
+  with no `wait()` is a busy-spin that never parks, and
+  `time.sleep_ms()` inside the loop breaks packet timing.  Put
+  anything the app needs to notice (wifi gave up, a task finished)
+  in an `if` inside the loop, before the `wait()`.
 
 ## When something feels wrong
 

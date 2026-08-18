@@ -1,29 +1,34 @@
-"""Two-board handshake: server side.
+"""One board talking to another: the side that listens.
 
-Pairs with ``examples/two_board_handshake/client/`` running on a
-*different* physical board on the same wifi network.  This side
-opens an HTTP server and accepts JSON readings from the client at
-``POST /api/sensor``, also exposing a tiny status page at ``GET /``
-and a JSON view at ``GET /api/latest``.
+This is the file that runs on the board playing server.  It brings wifi
+up, prints the address it ended up with, and then answers requests: it
+takes readings the other board POSTs to ``/api/sensor``, and serves a
+small status page at ``/`` plus the latest reading as JSON at
+``/api/latest``.
 
-Architecture:
+You need two boards on the same wifi for this one.  Deploy this side
+first, watch the serial output for the line that prints its IP, and put
+that IP into the client's ``project_config.toml``.
 
-* Single-process, runner-shaped: ``HttpServer.check`` /
-  ``HttpServer.handle`` advance accept / dispatch / response one
-  tick at a time, so an LED can keep blinking through inbound
-  request handling.  ``HttpServer.from_config`` builds the listener
-  from ``http_server.bind_host`` / ``bind_port`` in config.
-* In-memory state: no persistence (a reset clears the latest
-  reading; the client just keeps POSTing).
-* Listens on ``0.0.0.0:8080`` by default.  Adjust
-  ``http_server.bind_port`` in ``project_config.toml`` if your
-  network conflicts.
+The latest reading is kept in memory, so a reset forgets it.  That is
+fine here: the client keeps posting.
+
+What you will see::
+
+    server: connecting to wifi ...
+    server: wifi at 10.0.0.42
+    server: listening on http://10.0.0.42:8080/
+    server: configure the client's two_board.server_host = '10.0.0.42'
+    server: <- sensor=sensor-1 value=21.4
+
+Things to change:
+
+* ``project_config.toml`` beside this file holds ``http_server.bind_port``
+  if 8080 clashes with something on your network.
 
 Scaffold a copy with
 ``python3 run.py new two_board/server --from examples/two_board_handshake/server``,
-then ``python3 run.py deploy two_board/server`` and watch its serial
-output for the IP it prints.  You'll plug that IP into the client's
-``project_config.toml``.
+then ``python3 run.py deploy two_board/server``.
 """
 
 from chumicro_config import load_runtime_config
@@ -98,9 +103,11 @@ def run() -> None:
     runner.add(wifi)
 
     print("server: connecting to wifi ...")
-    runner.run_until(lambda: wifi.connected or wifi.state == WifiState.FAILED)
-    if wifi.state == WifiState.FAILED:
-        raise SystemExit(f"wifi failed: {wifi.last_error}")
+    while not wifi.connected:
+        now_ms = runner.tick()
+        if wifi.state == WifiState.FAILED:
+            raise SystemExit(f"wifi failed: {wifi.last_error}")
+        runner.wait(now_ms)
     print(f"server: wifi at {wifi.ip}")
     print(f"server: listening on http://{wifi.ip}:{bind_port}/")
     print(f"server: configure the client's two_board.server_host = {wifi.ip!r}")
@@ -110,4 +117,10 @@ def run() -> None:
     _register_routes(server, state)
     runner.add(server)
 
-    runner.run_until()  # never completes: parks the CPU between requests
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never exits, which is what a board
+    # program does: it parks between requests and wakes on the next one.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)

@@ -71,7 +71,7 @@ is supplied: check `projects/example_sensor/` for the recipe).
 | `chumicro-wifi` | sole-supervisor wifi service |
 | `chumicro-sockets` | host TCP / TLS for the MQTT transport (via `from_config`) |
 | `chumicro-mqtt` | non-blocking MQTT 3.1.1 client (QoS 0 + 1); pre-connect publish queue |
-| `chumicro-runner` | tick-shaped scheduler; `add_periodic` + `run_until()` |
+| `chumicro-runner` | tick-shaped scheduler; `add_periodic` + a `while True` loop of `tick()` / `wait()` |
 
 ## What's next
 

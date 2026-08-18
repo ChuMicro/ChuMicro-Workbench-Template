@@ -50,7 +50,7 @@ attribute, which this example prints alongside the failed state.
 |---|---|
 | `chumicro-config` | reads the deployed config back on the device |
 | `chumicro-wifi` | the wifi service: state machine + auto-reconnect, sole owner of the radio |
-| `chumicro-runner` | the scheduler: `add_periodic` runs the status beacon; `run_until()` parks the CPU between beats |
+| `chumicro-runner` | the scheduler: `add_periodic` runs the status beacon; `tick()` + `wait()` in the `while True` loop park the CPU between beats |
 
 ## What's next
 

@@ -33,7 +33,7 @@ hello_world: done
 
 | Library | Why |
 |---|---|
-| `chumicro-timing` | wraparound-safe `ticks_ms` / `ticks_diff`: the canonical "wait N ms" idiom for code that runs on devices |
+| `chumicro-timing` | `ticks_ms` plus `Rate`, the non-blocking "is it time yet?" timer that device code uses instead of `time.sleep` |
 
 That's it.  No wifi, no sockets, no MQTT, no I/O.  Pure host
 language plus `chumicro-timing`.
@@ -41,6 +41,6 @@ language plus `chumicro-timing`.
 ## What's next
 
 Once `hello_world` ships, the natural follow-on is
-[`wifi_only/`](../wifi_only/): same shape, but brings the wifi
-service up with credentials from the workbench's gitignored
-`secrets.toml`.
+[`wifi_only/`](../wifi_only/): same `while True` loop, but it hands
+the loop to a `Runner` and brings the wifi service up with
+credentials from the workbench's gitignored `secrets.toml`.

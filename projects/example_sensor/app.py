@@ -1,9 +1,32 @@
-"""Example sensor: temperature publisher with persistent boot counter.
+"""Publish the board's own temperature over MQTT, and count its reboots.
 
-The canonical reference for wiring `WifiService` + `MQTTClient` +
-`KVStore` into a tick-shaped `Runner`.  Edit ``project_config.toml``
-to change broker / topic / period; wifi credentials live in the
-workspace's gitignored ``secrets.toml``.
+This is the file that runs on the board, and it is the one to copy when
+you start your own project: it wires up wifi, an MQTT connection, and a
+little bit of storage that survives a reset, and then it just runs.
+
+What it does, in order: bump a boot counter that lives in flash, bring
+wifi up, connect to the broker, and publish a temperature reading every
+few seconds forever.
+
+What you will see::
+
+    sensor: boot #4
+    (then nothing but readings arriving at your broker)
+
+Things to change:
+
+* ``project_config.toml`` beside this file holds the broker address, the
+  topic, and how often to publish.
+* Wifi credentials do not live here.  They are in the workspace's
+  ``secrets.toml``, which is gitignored so a password never reaches a
+  commit.
+* ``read_celsius`` returns a fixed 20.0 on a board with no temperature
+  sensor.  Swap in your own sensor there.
+
+The wifi callback below is worth reading twice.  When the link drops it
+tells the MQTT client to stop dialing, and when the link returns it tells
+it to reconnect.  That pair is all the reconnect handling this project
+needs.
 """
 
 import json
@@ -70,5 +93,10 @@ def run():
     runner.add_periodic(publish_reading,
                         period_ms=config.require("sensor.publish_period_ms"))
 
-    runner.run_until(lambda: wifi.state == WifiState.FAILED)
-    raise SystemExit(f"sensor: wifi failed: {wifi.last_error}")
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never ends, which is what a board program
+    # does.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)
