@@ -52,7 +52,10 @@ def run():
     runner.add(mqtt)
     runner.add_periodic(publish_reading,
                         period_ms=config.require("sensor.publish_period_ms"))
-    runner.run_until(lambda: wifi.state == WifiState.FAILED)   # run forever
+
+    while True:                    # the loop runs forever, like any board program
+        now_ms = runner.tick()     # every service takes one small step
+        runner.wait(now_ms)        # then the CPU parks until something needs it
 ```
 
 The wifi password and the broker address stay out of the code.  Credentials live in `secrets.toml`, which is gitignored; the knobs live in a small file beside the code:

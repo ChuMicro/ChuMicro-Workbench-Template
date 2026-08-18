@@ -55,7 +55,7 @@ The loop keeps going.
 | `chumicro-wifi` | sole-supervisor wifi service |
 | `chumicro-sockets` | host TCP for the HTTP client (via `from_config`) |
 | `chumicro-requests` | non-blocking HTTP/1.1 client (`HttpClient.from_config`) |
-| `chumicro-runner` | tick-shaped scheduler; `run_until()` parks the CPU between posts |
+| `chumicro-runner` | tick-shaped scheduler; `tick()` + `wait()` in the `while True` loop park the CPU between posts |
 | `chumicro-timing` | `Deadline` for wrap-safe next-post scheduling |
 
 ## What's next

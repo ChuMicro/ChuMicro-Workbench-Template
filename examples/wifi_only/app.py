@@ -8,8 +8,8 @@ Smallest example that exercises:
 * ``chumicro-wifi``'s state machine (cooperative connect, auto-
   reconnect on drop);
 * the runner pattern: ``add_periodic`` schedules the status print,
-  and ``run_until()`` drives ``tick`` + ``wait`` so the CPU parks
-  between beats instead of busy-spinning.
+  and a ``while True`` loop calls ``tick`` then ``wait`` so the CPU
+  parks between beats instead of busy-spinning.
 
 No sockets, no upper-layer protocols.  Once wifi is up, the loop
 just prints status.  Great as the second deploy after
@@ -49,4 +49,10 @@ def run() -> None:
     runner.add_periodic(report_status, period_ms=period_ms)
 
     print("wifi_only: connecting ...")
-    runner.run_until()  # never completes: parks the CPU between beats
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never exits, which is what a board
+    # program does: it parks between beats and wakes for the next one.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)

@@ -1,24 +1,28 @@
-"""Two-board handshake: client side.
+"""One board talking to another: the side that sends.
 
-Pairs with ``examples/two_board_handshake/server/`` running on a
-*different* physical board on the same wifi network.  This side
-reads a "sensor" value (a synthetic sine-wave since this example
-doesn't assume a real sensor) and POSTs it to the server's
-``/api/sensor`` endpoint every ``period_ms`` milliseconds.
+This is the file that runs on the board playing client.  It brings wifi
+up, makes up a sensor reading (a sine wave, so you get changing numbers
+without wiring anything), and POSTs it to the other board every few
+seconds.
 
-Architecture:
+You need two boards on the same wifi for this one.  Deploy the server
+side first, note the IP it prints, and set ``two_board.server_host`` in
+``project_config.toml`` beside this file before deploying this one.
 
-* Single-process, runner-shaped: ``HttpClient.check`` /
-  ``HttpClient.handle`` advance the in-flight POST one tick at a
-  time, so wifi reconnects + LED blinks keep working through the
-  request.
-* Self-heal on drop: ``HttpClient.from_config`` builds the transport
-  from config; a fresh connector is opened per request, so a wifi
-  drop doesn't wedge the client.  ``Deadline`` owns the next-post
-  arithmetic.
+A fresh connection is opened for each POST, which is why a wifi drop in
+between does not leave this board stuck: there is nothing held open to
+get wedged.
 
-Before deploying, set ``two_board.server_host`` in
-``project_config.toml`` to the IP the server printed at startup.
+What you will see::
+
+    client: connecting to wifi ...
+    client: wifi at 10.0.0.43
+    client: posting to http://10.0.0.42:8080/api/sensor every 5000 ms
+    client: -> POST http://10.0.0.42:8080/api/sensor #0
+      -> status=200
+    client: -> POST http://10.0.0.42:8080/api/sensor #1
+      -> status=200
+    ...
 
 Scaffold a copy with
 ``python3 run.py new two_board/client --from examples/two_board_handshake/client``,
@@ -108,9 +112,11 @@ def run() -> None:
     runner.add(wifi)
 
     print("client: connecting to wifi ...")
-    runner.run_until(lambda: wifi.connected or wifi.state == WifiState.FAILED)
-    if wifi.state == WifiState.FAILED:
-        raise SystemExit(f"wifi failed: {wifi.last_error}")
+    while not wifi.connected:
+        now_ms = runner.tick()
+        if wifi.state == WifiState.FAILED:
+            raise SystemExit(f"wifi failed: {wifi.last_error}")
+        runner.wait(now_ms)
     print(f"client: wifi at {wifi.ip}")
     print(f"client: posting to {url} every {period_ms} ms")
 
@@ -123,4 +129,10 @@ def run() -> None:
         period_ms=period_ms,
     ))
 
-    runner.run_until()  # never completes: parks the CPU between posts
+    # The main loop.  tick() gives every registered service one small
+    # step; wait() then parks the CPU until the next event or deadline
+    # instead of spinning.  It never exits, which is what a board
+    # program does: it parks between posts and wakes for the next one.
+    while True:
+        now_ms = runner.tick()
+        runner.wait(now_ms)

@@ -53,7 +53,7 @@ curl http://192.168.0.42:8080/api/latest
 | `chumicro-wifi` | sole-supervisor wifi service |
 | `chumicro-sockets` | host TCP listener (via `from_config`) |
 | `chumicro-http-server` | runner-shaped HTTP/1.1 server (`HttpServer.from_config`) |
-| `chumicro-runner` | tick-shaped scheduler; `run_until()` parks the CPU between requests |
+| `chumicro-runner` | tick-shaped scheduler; `tick()` + `wait()` in the `while True` loop park the CPU between requests |
 | `chumicro-timing` | wraparound-safe `ticks_ms` for the receive timestamp |
 
 ## What's next

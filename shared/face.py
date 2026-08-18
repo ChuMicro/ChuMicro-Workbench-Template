@@ -198,10 +198,11 @@ class Face:
             )
 
     def serve_forever(self):
-        """Tick until wifi reaches FAILED (reconnect policy exhausted).
+        """Tick and wait, forever.
 
-        Raises instead of returning: a watchdog board gets its reset,
-        a bare one leaves the reason on the console.
+        ``tick()`` gives every registered service one small step;
+        ``wait()`` then parks the CPU until the next event or deadline.
         """
-        self.runner.run_until(lambda: self.wifi.state == WifiState.FAILED)
-        raise SystemExit(f"{self.name}: wifi failed: {self.wifi.last_error}")
+        while True:
+            now_ms = self.runner.tick()
+            self.runner.wait(now_ms)

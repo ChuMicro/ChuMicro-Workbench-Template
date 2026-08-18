@@ -102,7 +102,17 @@ Procedural knowledge for common workflows lives under `.github/skills/`.  Read t
 - **Project names are Python identifiers.**  `python3 run.py new` rejects hyphens / dots / leading-digits / Python-keywords / leading-underscores up-front.  If the user typed a hyphenated name, suggest the underscore version.
 - **Credentials live in `secrets.toml` directly** under nested TOML tables (`[wifi] ssid = ...`).  The file is gitignored, so wifi password / broker auth never reaches git.  Per-project `project_config.toml` deep-merges on top.  On-device readers see flat keys (`config["wifi.ssid"]`).  Compose-time flattening produces them.
 - **CP boards: do NOT add `CIRCUITPY_WIFI_SSID` to `settings.toml`.**  `chumicro-wifi` owns the radio; CircuitPython's auto-connect supervisor will compete with it.
-- **`run_until` / `runner.wait()` is the main-loop contract for networked projects.**  Drive the loop with `runner.run_until(predicate)` (or `run_until()` for run-forever apps).  It ticks then parks the CPU in `runner.wait(now)` until the next event or deadline, which is the *correct* way to idle between events.  Don't suggest a bare `while True: runner.tick()` busy-spin (never parks, a real on-device power cost) or a `time.sleep_ms()` inside the loop (loses MQTT keepalive timing and stalls inbound bytes).  If the user wants deeper power savings, the answer is a different runner shape (deep-sleep + scheduled wake), not a sleep call.
+- **Write the main loop out by hand: `while True:` then `tick()` then `wait()`.**  Every app, example, and project in this workbench ends with the same four lines, because that is the loop an Adafruit-Learn reader already knows and can put a breakpoint in:
+
+  ```python
+  while True:
+      now_ms = runner.tick()   # every registered service takes one small step
+      runner.wait(now_ms)      # then the CPU parks until the next event or deadline
+  ```
+
+  `runner.wait(now_ms)` is the line that carries the whole contract: it idles until the next socket event or timer deadline instead of spinning.  A `while True: runner.tick()` with **no** `wait()` is the busy-spin to reject (never parks, a real on-device power cost), and so is `time.sleep_ms()` inside the loop (loses MQTT keepalive timing and stalls inbound bytes).  If the user wants deeper power savings, the answer is a different runner shape (deep-sleep + scheduled wake), not a sleep call.
+
+  Anything the app needs to notice (wifi gave up, a task finished, a deadline passed) is an `if` **inside** that loop, before the `wait()`.  `runner.run_until(predicate)` packages the same loop into one call and is fine in code nobody is learning from, but the workbench's own examples keep the loop on the page.
 - **Flash mode is the default; RAM mode is opt-in for single-library experiments.**  `chumicro-deploy` ships with `deploy_mode: flash` as the default for project deploys, examples, and most functional tests.  This matches how production deploys behave on the device.  RAM mode (`deploy_mode: ram`) is only useful for quick single-library iteration where state-doesn't-persist-across-resets is actually fine.  Heavier libraries (`chumicro-mqtt` / `chumicro-requests` / `chumicro-http-server` / `chumicro-websockets`) declare `[tool.chumicro] requires_flash = true` in their pyproject; if a project imports any of them and the device is in `ram` mode, the deployer auto-switches to flash and prints why.  Surface this when the user reports "messages stop after first publish" or `OSError: [Errno 2] ENOENT` on `/runtime_config.msgpack`.
 - **Run `python3 run.py test` before reporting work as done** when the user has tests under `projects/<name>/tests/` or at the workbench root.
 
